@@ -23,18 +23,19 @@ L'ordine sotto e quello consigliato per lavorare: prima cose semplici, veloci e 
 | 4 | TF-IDF + cosine similarity | Bassa | Molto veloce | 35% | Prima soluzione IR seria | Se BM25 e disponibile |
 | 5 | BM25 su documenti locali | Bassa-media | Molto veloce | 40% | Primo retrieval consigliato | Quando abbiamo log e knowledge base minima |
 | 6 | BM25 che sceglie direttamente l'opzione | Media | Molto veloce | 38% | Prima soluzione "intelligente" senza LLM | Se serve ragionamento o conoscenza implicita |
-| 7 | Calculator tool per domande numeriche | Media | Molto veloce | 45% | Aggiungerlo presto, e modulare | Dopo aver rilevato pattern numerici |
-| 8 | LLM piccolo 1B-2B zero-shot | Media | Veloce | 35-42% | Primo test generativo su T4 | Se output e parsabile e sta nei tempi |
-| 9 | LLM piccolo 1B-2B few-shot | Media | Veloce | 38-45% | Stabilizzare formato e scelta opzione | Se il prompt lungo non rallenta troppo |
-| 10 | BM25 + LLM 1B-2B | Media | Veloce | 45-50% | Primo RAG completo e leggero | Se migliora rispetto a LLM puro |
-| 11 | LLM 3B-4B quantizzato | Media-alta | Medio | 42-50% | Modello principale se la T4 regge | Se latenza e VRAM sono accettabili |
-| 12 | BM25 + LLM 3B-4B quantizzato | Media-alta | Medio | 50-55% | Soluzione target realistica | Quando il notebook e gia solido |
-| 13 | Sentence embeddings piccoli + LLM piccolo | Media-alta | Medio | 48-52% | Da provare contro BM25 | Solo se BM25 perde su parafrasi |
-| 14 | Cross-encoder mini per reranking | Alta | Medio-lento | 35-45% | Esperimento offline | Se aggiunge troppo poco, scartarlo |
-| 15 | LLM 7B-8B in 4-bit | Alta | Medio-lento | 35-45% | Esperimento di qualita | Solo se non va in OOM e non sfora 30s |
-| 16 | Ensemble di prompt | Alta | Lento | 35% | Solo offline o su poche domande | Se raddoppia la latenza, non usarlo in partita |
-| 17 | Fine-tuning / LoRA | Molto alta | Variabile | 30% | Solo se avete dati e tempo | Non farlo prima di RAG + logging |
-| 18 | Audio ASR/TTS o browser automation | Molto alta | Lento/fragile | 25% | Solo come extra creativo | Non deve bloccare la soluzione principale |
+| 7 | Agentic router + tool matematici | Media | Molto veloce | 45-55% su Maths | Prima dei LLM, per domande calcolabili | Quando i tool non coprono piu casi |
+| 8 | Calculator/statistics/algebra tools | Media | Molto veloce | 45-60% su Maths | Aggiungerli in modo modulare | Dopo aver rilevato pattern numerici |
+| 9 | LLM piccolo 1B-2B zero-shot | Media | Veloce | 35-42% | Primo test generativo su T4 | Se output e parsabile e sta nei tempi |
+| 10 | LLM piccolo 1B-2B few-shot | Media | Veloce | 38-45% | Stabilizzare formato e scelta opzione | Se il prompt lungo non rallenta troppo |
+| 11 | BM25 + LLM 1B-2B | Media | Veloce | 45-50% | Primo RAG completo e leggero | Se migliora rispetto a LLM puro |
+| 12 | LLM 3B-4B quantizzato | Media-alta | Medio | 42-50% | Modello principale se la T4 regge | Se latenza e VRAM sono accettabili |
+| 13 | BM25 + LLM 3B-4B quantizzato | Media-alta | Medio | 50-55% | Soluzione target realistica | Quando il notebook e gia solido |
+| 14 | Sentence embeddings piccoli + LLM piccolo | Media-alta | Medio | 48-52% | Da provare contro BM25 | Solo se BM25 perde su parafrasi |
+| 15 | Cross-encoder mini per reranking | Alta | Medio-lento | 35-45% | Esperimento offline | Se aggiunge troppo poco, scartarlo |
+| 16 | LLM 7B-8B in 4-bit | Alta | Medio-lento | 35-45% | Esperimento di qualita | Solo se non va in OOM e non sfora 30s |
+| 17 | Ensemble di prompt | Alta | Lento | 35% | Solo offline o su poche domande | Se raddoppia la latenza, non usarlo in partita |
+| 18 | Fine-tuning / LoRA | Molto alta | Variabile | 30% | Solo se avete dati e tempo | Non farlo prima di RAG + logging |
+| 19 | Audio ASR/TTS o browser automation | Molto alta | Lento/fragile | 25% | Solo come extra creativo | Non deve bloccare la soluzione principale |
 
 ## Priorita effettiva
 
@@ -43,13 +44,14 @@ La sequenza minima che conviene davvero implementare e:
 1. API + logging.
 2. Random baseline.
 3. Prima opzione baseline.
-4. BM25 su documenti locali.
-5. BM25 diretto sulle opzioni.
-6. LLM piccolo 1B-2B zero-shot.
-7. LLM piccolo 1B-2B few-shot.
-8. BM25 + LLM piccolo.
-9. Se la T4 regge: LLM 3B-4B quantizzato.
-10. Se migliora davvero: BM25 + LLM 3B-4B.
+4. Agentic router con tool matematici/statistici semplici.
+5. BM25 su documenti locali o Wikipedia/cache.
+6. BM25 diretto sulle opzioni.
+7. LLM piccolo 1B-2B zero-shot.
+8. LLM piccolo 1B-2B few-shot.
+9. BM25 + LLM piccolo.
+10. Se la T4 regge: LLM 3B-4B quantizzato.
+11. Se migliora davvero: BM25 + LLM 3B-4B.
 
 Tutto quello dopo e sperimentale. Va bene provarlo, ma non deve diventare dipendenza critica del progetto.
 
@@ -80,6 +82,8 @@ Le famiglie sotto sono intese come classi di modelli, non come obbligo di usare 
 
 Configurazione primaria:
 
+- router: decide tra tool, retrieval e LLM;
+- tool: calcolatrice Python, pattern statistici, controlli sulle opzioni, algebra semplice;
 - retrieval: BM25 su CPU;
 - modello generativo: prima LLM 1B-2B, poi eventualmente LLM 3B-4B quantizzato;
 - prompt: massimo 3 snippet, nessuna spiegazione lunga;
@@ -106,12 +110,15 @@ La soluzione piu sensata e una pipeline leggera:
 
 1. Ricevi domanda e opzioni dalla API.
 2. Applica normalizzazione minima del testo.
-3. Se la domanda sembra matematica, usa Python/calculator senza LLM.
-4. Altrimenti recupera 3 snippet al massimo con BM25 o embeddings piccoli.
+3. Router agentico:
+   - se e matematica/statistica/algebra, prova un tool deterministico;
+   - se e conoscenza generale, prova retrieval locale/live;
+   - se nessun tool basta, usa LLM piccolo.
+4. Recupera 3 snippet al massimo con BM25 o embeddings piccoli.
 5. Passa a un LLM piccolo un prompt molto corto.
 6. Forza output solo come `option_id`.
 7. Se l'output non e valido, fallback alla risposta con scoring lessicale o prima opzione.
-8. Logga domanda, risposta, latenza, modello, strategia e correttezza.
+8. Logga domanda, risposta, tool usato, latenza, modello, strategia e correttezza.
 
 ## Prompt consigliato
 
