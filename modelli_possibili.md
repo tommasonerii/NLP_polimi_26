@@ -1,75 +1,179 @@
 # Possibili modelli per PoliMillionaire
 
-Questo file riassume alcune strategie compatibili con gli argomenti visti nel corso di NLP e con i vincoli del progetto. Le probabilita sono stime iniziali, non risultati misurati: servono per decidere da dove partire. Nel notebook vanno poi sostituite o affiancate con metriche reali.
+Questo file riassume strategie compatibili con gli argomenti del corso e con un vincolo pratico forte: al massimo abbiamo una singola GPU T4 gratuita su Colab o Kaggle. Quindi niente modelli grossi, niente ensemble pesanti e niente pipeline lente. Le probabilita sono stime iniziali da verificare nel notebook, non risultati sperimentali.
 
-Assunzione usata per la stima: "funzionare" significa rispondere entro 30 secondi, superare una baseline random e produrre risultati spiegabili nel report.
+Assunzioni realistiche:
 
-| Approccio | Argomenti del corso collegati | Probabilita di funzionamento | Pro | Contro | Priorita |
-| --- | --- | ---: | --- | --- | --- |
-| Baseline random | Valutazione sperimentale | 20% | Facilissima, utile come confronto minimo | Prestazioni basse, nessuna intelligenza | Obbligatoria come baseline |
-| Keyword matching / regole | Text preprocessing, classificazione semplice | 25% | Veloce, controllabile, utile per domande ricorrenti | Fragile, poco generale | Bassa |
-| TF-IDF + cosine similarity su knowledge base locale | Text search, vector space model | 40% | Molto veloce, semplice da spiegare, niente GPU | Dipende dalla qualita dei documenti indicizzati | Media |
-| BM25 / search lessicale su documenti locali | Text search e information retrieval | 45% | Spesso meglio di TF-IDF su query brevi, veloce | Non capisce bene sinonimi/parafrasi | Media |
-| Word embeddings statici | Word embeddings | 35% | Buon ponte tra matching lessicale e semantico | Modelli statici meno forti su domande complesse | Bassa-media |
-| Sentence embeddings + nearest neighbors | Embeddings contestuali, semantic search | 55% | Buono per recuperare contesto semanticamente vicino | Da solo non sempre sceglie bene tra 4 opzioni | Alta come componente RAG |
-| Classificatore supervisionato leggero | Text classification | 30% | Facile da valutare se si hanno dati etichettati | Mancano dati di training specifici del quiz | Bassa, salvo raccolta dati |
-| Transformer encoder fine-tuned | Transformers, text classification | 45% | Puo imparare pattern se si crea dataset di domande | Serve dataset, rischio overfitting, training piu costoso | Media-bassa |
-| LLM open-weight zero-shot | Generative models, LLMs | 60% | Implementazione rapida, copre molte categorie | Puo essere lento o allucinare, dipende dal modello locale | Alta |
-| LLM open-weight few-shot | Prompting, LLMs | 65% | Spesso migliora formato e affidabilita | Prompt piu lungo, piu latenza | Alta |
-| RAG lessicale: BM25 + LLM locale | Search, RAG, LLMs | 70% | Buon equilibrio tra conoscenza esterna e ragionamento | Retrieval sbagliato puo confondere il modello | Molto alta |
-| RAG semantico: embeddings + LLM locale | Semantic search, RAG, transformers | 75% | Migliore su parafrasi e domande fattuali | Richiede indicizzazione embeddings e gestione contesto | Molto alta |
-| LLM + tool calculator | Agentic AI, tool calling | 65% | Utile per matematica, date, conversioni, logica semplice | Serve rilevare quando usare il tool | Alta come modulo |
-| Ensemble di prompt sullo stesso LLM | LLMs, valutazione | 68% | Riduce errori casuali con voto di maggioranza | Moltiplica il tempo di inferenza | Media-alta |
-| Ensemble di piu modelli locali | LLMs, model comparison | 72% | Puo aumentare robustezza e offre analisi interessante | Pesante in RAM/GPU e tempo | Alta se l'hardware regge |
-| Fine-tuning di LLM piccolo | Fine-tuning, LLMs | 55% | Interessante da discutere, puo migliorare formato/strategie | Dati difficili da ottenere, rischio alto rispetto al tempo | Media-bassa |
-| Interfaccia audio con ASR/TTS | Sequence models, transformers, speech | 40% | Originale se l'audio viene rilasciato | Rischio timeout e problemi di trascrizione | Opzionale |
-| Browser automation invece della API testuale | Deployment/interazione web | 35% | Mostra capacita di integrazione | Piu fragile e probabilmente non necessario | Bassa |
+- runtime gratuito con al massimo una GPU T4;
+- circa 15-16 GB di VRAM, ma non sempre tutti disponibili;
+- modelli piccoli o quantizzati, idealmente caricati una sola volta a inizio notebook;
+- timeout del gioco di circa 30 secondi per domanda;
+- niente API di LLM per generare risposte, per vincolo della consegna;
+- obiettivo: battere baseline random, rispondere entro tempo e produrre una buona analisi.
 
-## Modelli open-weight candidati
+## Roadmap ordinata
 
-La consegna vieta l'uso di API di LLM per generare le risposte. Quindi i modelli vanno eseguiti localmente, per esempio su Colab o macchina propria.
+L'ordine sotto e quello consigliato per lavorare: prima cose semplici, veloci e misurabili; poi miglioramenti progressivi; infine esperimenti piu complessi solo se resta tempo.
 
-| Famiglia modello | Uso consigliato | Probabilita stimata | Note operative |
+| Ordine | Soluzione | Complessita | Tempo risposta | Probabilita di funzionamento | Quando farla | Quando passare oltre |
+| ---: | --- | --- | --- | ---: | --- | --- |
+| 1 | Baseline random | Molto bassa | Istantaneo | 20% | Subito | Appena il loop API e il logging funzionano |
+| 2 | Baseline "prima opzione" | Molto bassa | Istantaneo | 20% | Subito | Dopo aver misurato qualche partita |
+| 3 | Regole semplici / keyword matching | Bassa | Istantaneo | 25% | Dopo le baseline | Se copre pochi casi o resta fragile |
+| 4 | TF-IDF + cosine similarity | Bassa | Molto veloce | 35% | Prima soluzione IR seria | Se BM25 e disponibile |
+| 5 | BM25 su documenti locali | Bassa-media | Molto veloce | 40% | Primo retrieval consigliato | Quando abbiamo log e knowledge base minima |
+| 6 | BM25 che sceglie direttamente l'opzione | Media | Molto veloce | 38% | Prima soluzione "intelligente" senza LLM | Se serve ragionamento o conoscenza implicita |
+| 7 | Calculator tool per domande numeriche | Media | Molto veloce | 45% | Aggiungerlo presto, e modulare | Dopo aver rilevato pattern numerici |
+| 8 | LLM piccolo 1B-2B zero-shot | Media | Veloce | 35-42% | Primo test generativo su T4 | Se output e parsabile e sta nei tempi |
+| 9 | LLM piccolo 1B-2B few-shot | Media | Veloce | 38-45% | Stabilizzare formato e scelta opzione | Se il prompt lungo non rallenta troppo |
+| 10 | BM25 + LLM 1B-2B | Media | Veloce | 45-50% | Primo RAG completo e leggero | Se migliora rispetto a LLM puro |
+| 11 | LLM 3B-4B quantizzato | Media-alta | Medio | 42-50% | Modello principale se la T4 regge | Se latenza e VRAM sono accettabili |
+| 12 | BM25 + LLM 3B-4B quantizzato | Media-alta | Medio | 50-55% | Soluzione target realistica | Quando il notebook e gia solido |
+| 13 | Sentence embeddings piccoli + LLM piccolo | Media-alta | Medio | 48-52% | Da provare contro BM25 | Solo se BM25 perde su parafrasi |
+| 14 | Cross-encoder mini per reranking | Alta | Medio-lento | 35-45% | Esperimento offline | Se aggiunge troppo poco, scartarlo |
+| 15 | LLM 7B-8B in 4-bit | Alta | Medio-lento | 35-45% | Esperimento di qualita | Solo se non va in OOM e non sfora 30s |
+| 16 | Ensemble di prompt | Alta | Lento | 35% | Solo offline o su poche domande | Se raddoppia la latenza, non usarlo in partita |
+| 17 | Fine-tuning / LoRA | Molto alta | Variabile | 30% | Solo se avete dati e tempo | Non farlo prima di RAG + logging |
+| 18 | Audio ASR/TTS o browser automation | Molto alta | Lento/fragile | 25% | Solo come extra creativo | Non deve bloccare la soluzione principale |
+
+## Priorita effettiva
+
+La sequenza minima che conviene davvero implementare e:
+
+1. API + logging.
+2. Random baseline.
+3. Prima opzione baseline.
+4. BM25 su documenti locali.
+5. BM25 diretto sulle opzioni.
+6. LLM piccolo 1B-2B zero-shot.
+7. LLM piccolo 1B-2B few-shot.
+8. BM25 + LLM piccolo.
+9. Se la T4 regge: LLM 3B-4B quantizzato.
+10. Se migliora davvero: BM25 + LLM 3B-4B.
+
+Tutto quello dopo e sperimentale. Va bene provarlo, ma non deve diventare dipendenza critica del progetto.
+
+## Modelli realistici con una T4
+
+Le famiglie sotto sono intese come classi di modelli, non come obbligo di usare proprio quel nome. Con una T4 conviene misurare subito: tempo di caricamento, VRAM occupata, tempo medio di generazione con prompt reale e numero di timeout.
+
+| Famiglia | Uso consigliato | Probabilita stimata | Note pratiche |
 | --- | --- | ---: | --- |
-| Piccolo LLM istruito, 1B-3B parametri | Baseline LLM veloce | 50-60% | Buono per test rapidi, meno forte su conoscenza specifica |
-| LLM istruito 7B-8B quantizzato | Modello principale | 60-70% | Buon compromesso qualita/tempo se gira entro 30 secondi |
-| LLM "thinking" piccolo/medio | Domande logiche o complesse | 60-72% | Da verificare: il ragionamento lungo puo causare timeout |
-| Sentence-transformer compatto | Retrieval semantico | 55-70% come componente | Non risponde da solo, ma migliora il contesto dato al LLM |
-| Cross-encoder per reranking | Reranking documenti/opzioni | 50-65% come componente | Migliora il retrieval ma aggiunge latenza |
-| Modello ASR open-source | Trascrizione audio, se disponibile | 35-50% | Utile solo se viene rilasciata l'interfaccia audio |
+| LLM istruito 1B-2B | Baseline LLM veloce | 35-42% | Consigliato per primo test end-to-end; dovrebbe stare comodo su T4 |
+| LLM istruito 3B-4B quantizzato | Modello principale leggero | 42-50% | Miglior compromesso per una T4; usare output breve e max token basso |
+| LLM istruito 7B-8B in 4-bit | Esperimento di qualita | 35-45% | Possibile ma non da dare per scontato: testare OOM e latenza prima di usarlo nel gioco |
+| Modello "thinking" piccolo | Domande logiche | 38-48% | Limitare molto il ragionamento, altrimenti rischia timeout |
+| Sentence-transformer mini | Retrieval semantico | 40-52% come componente | Utile per RAG, molto piu leggero di usare LLM per cercare |
+| BM25 puro | Retrieval lessicale | 35-45% come componente | Ottima baseline di retrieval, quasi gratis computazionalmente |
+| Cross-encoder mini | Reranking | 35-45% come componente | Valutarlo offline: in partita puo essere troppo lento |
+
+## Cosa eviterei
+
+- Modelli 13B+ o non quantizzati: troppo rischio di OOM e timeout.
+- Ensemble di 2+ LLM durante la partita: poco pratico su una sola T4.
+- Usare un 7B come unica soluzione senza fallback: se il runtime e lento o va in OOM si blocca tutto.
+- Prompt lunghi con troppi documenti RAG: aumentano latenza e confusione.
+- Fine-tuning come prima cosa: prima serve un loop stabile e dati di errore.
+- Browser automation: piu fragile della API testuale fornita.
+
+## Configurazione consigliata per una T4
+
+Configurazione primaria:
+
+- retrieval: BM25 su CPU;
+- modello generativo: prima LLM 1B-2B, poi eventualmente LLM 3B-4B quantizzato;
+- prompt: massimo 3 snippet, nessuna spiegazione lunga;
+- output: solo id opzione;
+- `max_new_tokens`: molto basso, idealmente 4-8 token;
+- fallback: se parsing fallisce, scegliere con scoring lessicale o prima opzione;
+- logging: sempre attivo.
+
+Configurazione alternativa piu leggera:
+
+- retrieval: BM25 o TF-IDF;
+- nessun modello generativo, oppure LLM 1B-2B;
+- utile come fallback se il 3B-4B e troppo lento nel runtime disponibile.
+
+Configurazione sperimentale:
+
+- LLM 7B-8B in 4-bit;
+- provarlo solo offline o su poche domande;
+- tenerlo solo se risponde stabilmente entro pochi secondi e non causa OOM.
 
 ## Architettura consigliata
 
-La soluzione piu promettente e una pipeline RAG + LLM locale:
+La soluzione piu sensata e una pipeline leggera:
 
 1. Ricevi domanda e opzioni dalla API.
-2. Classifica rapidamente il tipo di domanda: fattuale, matematica/logica, definizione, data/persona/luogo, altro.
-3. Se e matematica/logica, usa un tool calculator o codice Python.
-4. Se e fattuale, recupera documenti con BM25 o embeddings.
-5. Costruisci un prompt compatto con domanda, opzioni e massimo 3-5 snippet.
-6. Chiedi al modello di restituire solo l'id dell'opzione, piu una confidenza opzionale.
-7. Se la confidenza e bassa, prova un secondo prompt o un secondo modello, ma solo se resta tempo.
-8. Salva tutto in un log per analisi finale.
+2. Applica normalizzazione minima del testo.
+3. Se la domanda sembra matematica, usa Python/calculator senza LLM.
+4. Altrimenti recupera 3 snippet al massimo con BM25 o embeddings piccoli.
+5. Passa a un LLM piccolo un prompt molto corto.
+6. Forza output solo come `option_id`.
+7. Se l'output non e valido, fallback alla risposta con scoring lessicale o prima opzione.
+8. Logga domanda, risposta, latenza, modello, strategia e correttezza.
 
-## Metriche da misurare nel notebook
+## Prompt consigliato
+
+Usare prompt corti. Esempio:
+
+```text
+You must answer a multiple-choice quiz.
+Return only the option id.
+
+Question: {question}
+Options:
+{id1}. {text1}
+{id2}. {text2}
+{id3}. {text3}
+{id4}. {text4}
+
+Context:
+{retrieved_context}
+
+Answer:
+```
+
+Evitare prompt che chiedono spiegazioni lunghe durante la partita. Le spiegazioni si possono generare dopo, offline, per analisi.
+
+## Esperimenti minimi da fare in ordine
+
+1. Random baseline.
+2. Prima opzione baseline.
+3. Regole/keyword semplici.
+4. TF-IDF o BM25 senza LLM.
+5. BM25 che sceglie l'opzione direttamente.
+6. Calculator tool sulle domande numeriche.
+7. LLM piccolo zero-shot.
+8. LLM piccolo few-shot.
+9. BM25 + LLM piccolo.
+10. LLM 3B-4B quantizzato, se la T4 regge.
+11. BM25 + LLM 3B-4B, se migliora davvero.
+12. Embeddings piccoli + LLM piccolo, se BM25 non basta.
+
+## Metriche da misurare
 
 - Accuratezza totale.
 - Livello medio raggiunto.
 - Premio medio ottenuto.
 - Tempo medio per domanda.
 - Numero di timeout.
+- Numero di errori di parsing dell'output LLM.
 - Accuratezza per categoria di domanda.
-- Confronto tra baseline, LLM puro, RAG, RAG + tool, ensemble.
-- Error analysis: esempi di domande sbagliate e probabile causa dell'errore.
+- Confronto tra baseline, LLM puro, RAG e RAG + tool.
+- Error analysis con esempi concreti.
 
 ## Raccomandazione pratica
 
-Ordine di implementazione suggerito:
+Partirei cosi:
 
-1. Random baseline.
-2. LLM locale zero-shot.
-3. LLM locale few-shot con output vincolato.
-4. RAG semantico o BM25 + LLM.
-5. Calculator tool.
-6. Ensemble solo se c'e tempo e la latenza resta sotto 30 secondi.
+1. API + logging.
+2. Baseline random e prima opzione.
+3. Regole semplici e BM25 locale.
+4. BM25 diretto sulle opzioni.
+5. LLM 1B-2B con prompt corto.
+6. BM25 + LLM 1B-2B.
+7. Solo dopo provare un 3B-4B quantizzato.
+8. Solo alla fine provare un 7B quantizzato e confrontare se il miglioramento vale latenza, VRAM e rischio timeout.
 
+La tesi del progetto puo essere: con una sola T4, una pipeline RAG leggera e ben valutata puo battere un LLM piccolo usato da solo, anche se non raggiunge prestazioni da modelli grandi.
