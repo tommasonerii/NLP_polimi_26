@@ -1,0 +1,329 @@
+
+--- PAGE 1 ---
+Mark Carman
+Applications of TransformersNatural Language Processing
+
+--- PAGE 2 ---
+Mark Carman
+Lecture Contents:•Recap: §Transformer Architecture §BERT vs GPT•Part 1: Applications of BERT §What is BERT learning to do?§Fine-tuning BERT for Specific Tasks§Document Embeddings§Vector Databases§Multimodal Search•Part 2: Applications of GPT§Generating Text with GPT§Fine-tuning GPT§Multi-task and multi-modal models§Few-shot and Zero-shot Learning
+
+--- PAGE 3 ---
+Mark Carman
+Recap: Transformer Architecture and BERT vs GPT
+--- PAGE 4 ---
+Mark Carman
+Transformer StackTransformer architecture consists of: •input modulethat creates embeddingfor each observed token•follwoedby many transformer blocksstacked on top of each other•transformer blocksmodify embedding at each token position •based on information from previous token positions at layer below•output modulethat recovers predicted word probabilities
+<START>              ‘I’                   ‘like’  
+Embedding+ position
+Embedding+ position
+Embedding+ position
+…
+Linear + softmax
+Linear + softmax
+Linear + softmax
+…
+Transformer block
+…
+Transformer block
+Transformer block
+Transformer block
+…
+Transformer block
+Transformer block
+Transformer block
+…
+Transformer block
+Transformer block
+different parametersused in each layer
+same parametersused toprocess each token position
+embedding vector represents word at particular level
+chocolatesleepingholidaysappleskids
+amwasdon’twilllike
+theaanonis
+--- PAGE 5 ---
+Mark Carman
+Inside the Transformer blockEach Transformer block modiﬁes the incoming embedding•by addinginformation from multi-headself-attentionblockand a Feed-Forward Neural Network (FFNN)
+Transformer block
+Self-attention block
+FFNN
+⊕
+⊕
+embedding
+updated embedding
+‘like’
+Embedding+ position
+Linear + softmax
+‘bananas’
+Transformer block
+Transformer block
+Transformer block
+ attention head 1
+ attention head h
+attention head 2
+…
+linearmulti-head self-attention
+feed-forward neural network
+
+--- PAGE 6 ---
+Mark Carman
+Transformer block
+Self-attention layermultiple self-attention heads working in parallel
+MLP layer a single Feed-Forward Neural Network (FFNN)
+⊕
+⊕
+What do the components do?The two blocks within the Transformer provide complimentary functionality:Self-attention builds patterns from input text§E.g. identifies noun phrases that may correspond to named entities:“The Eiffel Tower”, “fastest animal on earth”, ….Feed-forward layer looks up facts for entities§See paper: “Transformer Feed-Forward Layers Are Key-Value Memories” https://arxiv.org/abs/2012.14913
+…      <height>     <of>      <Eiffel>   <Tower>
+<height of Eiffel Tower>
+<300 metres>
+<height of the Eiffel Tower, 300 metres>
+--- PAGE 7 ---
+Mark Carman
+Reminder: 3 Possible Architecturesencoder-decodermodels§original Transformer (2017), which was designed for translation§also T5(Text-to-Text Transfer Transformer) model from 2019§useful if input and output text havedifferent vocabulariesencoder-only models§e.g. BERT(Bidirectional Encoder Representations from Transformers)§pretrained as noisy auto-encoderto recover masked input§great for representing text (e.g. for building classifiers) 
+decoder-onlymodels§e.g. GPT-2(Generative Pretrained Transformer)§pretrained asautoregressivemodel to predict next token§great for generating text
+Image Source: http://jalammar.github.io/illustrated-transformer/
+Images adapted from: https://arxiv.org/pdf/1810.04805.pdf
+BERTDuchess      to        ...       Cheshire
+Duchess      to        ...      Cheshire
+GPT
+Duchess     to        ...       Cheshire
+to         play       ...          Cat
+--- PAGE 8 ---
+Mark Carman
+PART 1: Applications of BERT
+
+--- PAGE 9 ---
+Mark Carman
+Looking inside the BERT model-What is the stacked self-attention learning?
+--- PAGE 10 ---
+Mark Carman
+What is stacked self-attention learning?
+10
+Lots of visualisation is going on trying to interpret what is being learnt.•some heads simply aggregate information or attend to a previous token•others learn language relationships(2019 paper by Clark et al.) •see demo: https://colab.research.google.com/drive/1PEHWRHrvxQvYr9NFRC-E_fr3xDq1htCj
+Source: https://arxiv.org/pdf/1906.04341.pdf
+
+--- PAGE 11 ---
+Mark Carman
+Why is stacked self-attention so useful?11
+It’s been argued that Transformers effectively learnhow to build a dependency parse treeover concepts in the textHewitt et al. 2019 https://nlp.stanford.edu/pubs/hewitt2019structural.pdf•Consider the examples: §The store was out of food. ___ §The chef who ran to thestore was out of food. ___•To predict next sentence, need to who is out of food§was it the store or the chef?
+Source: https://nlp.stanford.edu//~johnhew//structural-probe.html
+Source: https://explosion.ai/demos/displacy?text=The%20chef%20who%20ran%20to%20the%20store%20was%20out%20of%20food.&model=en_core_web_sm&cpu=0&cph=0
+
+--- PAGE 12 ---
+Mark Carman
+Fine-tuning BERT modelsto perform speciﬁc tasks
+--- PAGE 13 ---
+Mark Carman
+We’ve seen BERT ﬁne-tunedfor classiﬁcation
+13
+During pre-training: •a special [CLS] token was added to start of text of all text, •but wasn’t used for anything (loss function ignored it)During ﬁne-tuning:•teach the model to produce class label in place of [CLS] token•i.e. instead of predicting a missing word, the model is ﬁne-tuned to predict the missing class label
+Source: http://jalammar.github.io/illustrated-bert/
+--- PAGE 14 ---
+Mark Carman
+Fine-tuning BERT for more complicated Tasks14
+Bidirectional language models like BERT are very ﬂexible!Usually trained to perform text classiﬁcation§by ﬁne-tuning to replace “[CLS]” token by classBut can also be ﬁne-tuned to perform sequence labelling§by simply replacing the output text during ﬁne-tuning§e.g. with sequences of begin/inside/outside labelsMoreover, can be ﬁne-tuned to perform text pair classiﬁcation§by adding a special “[SEP]” token to separate 2 pieces of text§comparing texts is extremely useful for all sorts of applications §such as determining whether the statements agree with each otherBERT can be ﬁne-tuned for question-answering§but GPT is more appropriate model for that task 
+Image source: https://arxiv.org/pdf/1810.04805.pdf
+
+--- PAGE 15 ---
+Mark Carman
+Learning to Re-rank Documents
+BERT-based can be used to rerankdocumentsin web search•simply ﬁne-tune BERT model to predict the relevance label (e.g. “highly relevant”, ”relevant”, “not relevant”, ”spam”)•for a set of <query, document> pairs•use “[SEP]” token to separate query and document on input 
+query: banana pancake recipedocument: This simple recipe takes only half an hour of preparation time and requires … 
+label: highly_relevant
+--- PAGE 16 ---
+Mark Carman
+Further uses of BERT:Document Embeddings
+--- PAGE 17 ---
+Mark Carman
+Problem: Computational OverheadUsing pairwise BERT classifierto calculate score for query and document:•very powerfulsince:§BERT takes into account semantics of wordsusing embeddings§BERT leverages order of wordsin both document and query•but also very costly§since BERT performs many matrix multiplications during inference, §so needs GPUto run fast and takes considerable time to run•too slowfor answering queries in real-time §needs to compute score for every documentin collection§e.g.: if collection contains 1 million documents and computingscore takes 1ms, we will wait over 15 minutes to run queryCan something be done to speed up the computation? •ideally, like to do as much pre-computationas possible•but can’t pre-compute similarity until we’ve seen the query …
+💪
+🥱
+💵
+--- PAGE 18 ---
+Mark Carman
+Solution 1: use lexical search to ﬁnd candidate documents18
+Hybrid approach:•use lexical search engine to quickly ﬁnd a small set of candidate documents
+•use ﬁne-tuned pairwise BERT classiﬁeronly tore-rankcandidate documents 
+querylexical search(tfidf-cosine or bm25)candidate documentsReranking with BERTfinal ranking
+--- PAGE 19 ---
+Mark Carman
+Solution 2: pre-compute document embeddings19
+BERT can also be used to compute embeddings for documents§use finalembeddingfor [CLS] token as representation of document §use dot-productbetween document embeddings to measure similarity§fine-tune BERT model so that CLS embeddings are useful for determining similarity§could train different encoders for queries and documents§not quite as powerful as pairwise BERT, why?
+BERTBERTBERTquery[CLS]document[SEP] query[CLS]document[CLS]
+embeddingembeddingembedding*relevant?not-relevant? score
+--- PAGE 20 ---
+Mark Carman
+Contrastive LossNeed to ﬁne-tune BERT model in such a way that:•the dot-product between [CLS] embeddings is useful for determining similarity between documents§i.e. high values of dot-product indicate similar documents and vice-versaTrain model to predict binary label (similar/not-similar) for pairs of documents•where softmaxof dot-product gives probability that documents are similarProcedure:•create batchesof relevant pairs of (query, document)§compute dot product between all queries and documents in batch§diagonal elements of matrix should produce high values§off diagonal elements (irrelevant pairings) should produce low similarities§softmaxalong row (/column), shows how well model predicts relevant query (/document) for each document (/query)•cross-entropy classiﬁcation loss is used to ﬁne-tune model§referred to as “contrastive loss” since aim is to contrast relevant/irrelevant pairs 
+similar?
+
+--- PAGE 21 ---
+Mark Carman
+Pre-trained Document Embedding:Sentence BERT (sBERT)Sentence BERT (sBERT):•fine-tuned model that has already been through contrastive loss training on large dataset of paired documents•based on either BERT or RoBERTa•works as document encoder: reads in document text and produces an embedding vector to describe itUsed in pipeline to perform “semantic” (document embeddings–based) search over collection of documents•precompute all document embeddings•when query arrives, compute query embedding•compare query embedding with each document in collectionNote: •dot products are fast to compute, but still need to pass over entire document collection•given context length restriction (e.g. 500 tokens), might need to split the document up into sections, and compute document scores for each chunksBERT
+sBERT *documentscorestextdocumentsdocumentembeddings
+query
+--- PAGE 22 ---
+Mark Carman
+Vector Databases
+--- PAGE 23 ---
+Mark Carman
+🚶
+Vector SearchVector Databases•index objects (text or images) based on their embedding•provide fastnearest neighbour searchin embedding space §example FAISS (Facebook AI Similarity Search)
+Nearest Neighbour Search•ﬁnding nearest neighbours in high-dimensionsis difﬁcult•since vectors are all at 90 degrees and approximately equidistant •clever algorithms effectively partition space intoclusters §example HNSW (Hierarchical Navigable Small Worlds)
+🌏
+🚶I have the feeling we’ve met beforeYes, we were in Mark’s NLP class togetherSmall world!
+FAISS applied to image embeddingsSource: https://engineering.fb.com/2017/03/29/data-infrastructure/faiss-a-library-for-efficient-similarity-search/https://engineering.fb.com/2017/03/29/data-infrastructure/faiss-a-library-for-efficient-similarity-search/
+Collection:
+Query:
+--- PAGE 24 ---
+Mark Carman
+Approximate Nearest Neighbour searchFinding Nearest Neighbours in high-dimensional data is hard!§indexes like k-d trees can provide O(log(n)) search for nearest neighbours in low dimensional spaces, https://en.wikipedia.org/wiki/K-d_tree §but break down in high dimensions, leading to O(n) behaviour Approximate nearest neighbour search •make use of Hierarchical Navigable Small Worlds (HNSW)https://en.wikipedia.org/wiki/Hierarchical_navigable_small_world•Navigable Small World graphs: §nodes are connected to their nearest neighbours, allowing for quick search•Hierarchy of layers§nodes are connected between layers §with all nodes on bottom layer and iteratively fewer nodes on higher layers•Algorithm searchers for nearest neighbour in a Vector DB§Implemented in FAISS (Facebook AI Similarity Search)https://en.wikipedia.org/wiki/FAISS§For more information see:https://medium.com/@myscale/understanding-vector-indexing-a-comprehensive-guide-d1abe36ccd3c
+Image source https://medium.com/@myscale/understanding-vector-indexing-a-comprehensive-guide-d1abe36ccd3c
+--- PAGE 25 ---
+Mark Carman
+Semantic Search PipelineIf we have a vector database that can ﬁnd content quickly •we can then re-rank the top documents using a pairwise BERT model trained for the purpose
+sBERT query
+finalrankingReranker(Pairwise BERT)
+textdocumentssBERTVectorDatabase
+built offline
+top kdocuments
+--- PAGE 26 ---
+Mark Carman
+Multi-modal Search-aligning embedding spaces across text, images and video
+--- PAGE 27 ---
+Mark Carman
+MulitmodalEmbedding SpacesMultimodal embeddings:•embeddings can be generated for text(using sBERT)•and also for images(using ResNetor a VisionTransformer)CLIP (Contrastive Language–Image Pre-training) •uses contrastive learning to align embedding spaces•by taking batchesof image andtext pairs(e.g. images & their captions)•trains classiﬁer to identify which text describes which image and which image describes which textWhy would we want an aligned embedding space?•allows for semantic image search using a text queries
+Query: “soccer fan elephant riding a bicycle”
+“inter-milansupporting elephant riding bicycle”, Images generated by: https://www.bing.com/images/create/inter-milan-supporting-elephant-riding-bicycle/1-6628ca5a038c4bd99594c90df8ef4bd8
+--- PAGE 28 ---
+Mark Carman
+PART 2: Applications of GPT
+
+--- PAGE 29 ---
+Mark Carman
+All we really need is the Decoder-Text Generation with GPT
+--- PAGE 30 ---
+Mark Carman
+Conditioning Generation30
+GPT is a generative model•generative models can work as encoder-decoders•where input and output text have same vocabulary•just condition generation on past text•so all we ever need is GPT!
+Self-attention stack
+embedding
+<start>
+somesoftmax
+Self-attention stack
+embedding
+some
+generatedsoftmax
+Self-attention stack
+embedding
+generated
+textsoftmax
+Self-attention stack
+embedding
+text
+thatsoftmax
+Self-attention stack
+embedding
+<start>
+softmax
+Self-attention stack
+embedding
+some
+softmax
+Self-attention stack
+embedding
+conditoning
+softmax
+Self-attention stack
+embedding
+text
+softmax
+Self-attention stack
+embedding
+then
+somesoftmax
+Self-attention stack
+embedding
+some
+generatedsoftmax
+Self-attention stack
+embedding
+generated
+textsoftmax
+Self-attention stack
+embedding
+text
+thatsoftmax
+--- PAGE 31 ---
+Mark Carman
+GPT-2 was a fantastic text generator31
+Conditioning on a largepiece of text•GPT-2 could generate new content•that soundedhighly believable •but could benonsensical(disagree with common sense)§note: newer models, don’t make nearly as many nonsensical statements, but do still invent occasional untruths --as do humansText generation is very important •because is is building block for manyapplications •from question answering to chatbots
+Image source: “Language Models are Unsupervised Multitask Learners” by Radford et al.https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf
+--- PAGE 32 ---
+Mark Carman
+Fine-tuning GPT for speciﬁc tasks
+--- PAGE 33 ---
+Mark Carman
+Fine-tuning GPT-2 for …33
+GPT-2 could be used as text encoder for classification, but its strength is text generation•so makes sense to use it for tasks like as translation, summarization,dialog, etc.During fine-tuning•introduce specialtokens (or just use text prompts)to separate input from output •and to indicate type of output desired
+Fine-tuning dataset for translation
+Source: http://jalammar.github.io/illustrated-gpt2/
+Fine-tuning dataset for summarization
+--- PAGE 34 ---
+Mark Carman
+Multi-task Learning-Transformers are powerful generic models-brought about the end of task-speciﬁc models
+--- PAGE 35 ---
+Mark Carman
+The end of task-speciﬁc modelsRealising the task-independent power of Transformer language models§researchers investigated ﬁne-tuning them (particularly the T5 model) to perform multiple tasks at once§found that multi-task model often outperformedtask speciﬁc models trained only on a particular task
+35
+Source: Sanhet al. “MULTITASK PROMPTED TRAINING ENABLESZERO-SHOT TASK GENERALIZATION” https://arxiv.org/pdf/2110.08207.pdf
+--- PAGE 36 ---
+Mark Carman
+Multimodal multi-task learning…Transformer architecture is very ﬂexible: •relatively easy to extend text-to-text models to multimodal (text+image) settings•allows for learning of tasks across all media …
+36
+Source: Wang et al. “OFA: Unifying Architectures, Tasks, and Modalities Through a Simple Sequence-to-Sequence Learning Framework” https://arxiv.org/abs/2202.03052
+
+--- PAGE 37 ---
+Mark Carman
+Further uses of GPT:GPT2 could be used even without ﬁne-tuning
+--- PAGE 38 ---
+Mark Carman
+Many tasks handled without fine-tuningLanguage models are the swissarmy knives of NLPText generation enables all sorts of functionality:Translation: §in the context, provide multiple strings of the form:text in source language = text in target language  §then prompt with: sentence to translate = Question answering: §simply prompt model with question, potentially formulated as statement:§The height of the Eiffel Tower in metres is Reading comprehension: §give text and examples of questions with answers, §then prompt with unanswered questionSummarization:§Provide content to be summarised and preﬁx response with “tl;dr:”
+38
+Image source: https://sl.bing.net/dIFBAdkx3xk
+--- PAGE 39 ---
+Mark Carman
+GPT-2 examples: question answeringGPT-2 model•had stored many facts in its “parametric knowledge”•and could answer questionsConﬁdent predictions from GPT-2 were usually correct:•although not as reliable as other forms of question answering (at the time)•note: system had not been trainedto do this!
+Image source: “Language Models are Unsupervised Multitask Learners” by Radford et al.https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf
+39
+--- PAGE 40 ---
+Mark Carman
+GPT-2 examples: reading comprehension
+Provide source context: §document, which contains answersFor few shotlearning provide also:§examples of questions and answersProvide new question: §and prompt model for answer Note: §general scheme can be used for all sorts of problems §e.g. fact checking, where potential evidence supporting/refuting claim is first retrieved as context
+40
+
+--- PAGE 41 ---
+Mark Carman
+GPT-2 examples: translation GPT-2 even worked out of the box as a machine translation system•was not the best translator out there, but the system was not trained to do translation! Moreover, it was only trained on an ENGLISH corpus•so how could it ever have learnt to “speak” French? •fragments of French were hidden in the training data …
+41
+--- PAGE 42 ---
+Mark Carman
+The bigdiscovery that enabled LLMs:-pretrained generative models could perform tasks-withoutany fine-tuning-via few-shotand zero-shotlearning
+--- PAGE 43 ---
+Mark Carman
+Generative models can be used withoutﬁne-tuningGenerative Language Models •are universal learners•that can be used without fine-tuningSimply provide examplesof what model should do àcalled few-shot learningOr describe taskthat model needs to perform àcalledzero-shot learning
+43
+From: Brown et al. “Language Models are Few Shot Learners”  https://arxiv.org/abs/2005.14165
+
+--- PAGE 44 ---
+Mark Carman
+How is few-shot learning even possible?During pre-training, model has seen many examples of few-shot learning!
+44
+From:  Brown et al. “Language Models are Few Shot Learners”  https://arxiv.org/abs/2005.14165
+
+--- PAGE 45 ---
+Mark Carman
+Conclusions
+--- PAGE 46 ---
+Mark Carman
+Conclusions
+MANY applications of Transformer Architecture•Fine-tuning BERT and GPT-2•Multi-task Learning•Document Embeddings•Multi-modal Learning•Zero-shot Learning
+“transforming robot”, image source: https://www.bing.com/images/create/transforming-robot/1-6628c4a3b05d455e937ddbeaa24ab625

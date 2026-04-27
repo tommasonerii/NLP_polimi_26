@@ -1,0 +1,200 @@
+
+--- PAGE 1 ---
+Mark Carman
+Large Language ModelsNatural Language Processing
+
+--- PAGE 2 ---
+Lecture Contents:•What are LLMs?•Example of LLM•From LLMs to Chatbots•Example Chatbots•Prompting LLMs•Potential problems with LLM-based Chatbots
+Mark Carman      
+
+--- PAGE 3 ---
+Recap: What is a Language Model?
+--- PAGE 4 ---
+Language Model: predicts distribution over next word in sequenceLanguage model reads in a sequence of text•and outputs a probability distribution for the next word in the sequence 
+Various sampling techniques •greedy, random, top-k, temperature, beam search, …•then be used to choose a word•which can then be added to the context to generate subsequent words …  
+ALICEwasbeginningtogetverytiredofsittingbyhersisteronthebank,andofhavingnothingtodo…whetherthepleasureofmakingadaisy-chainwouldbeworththetroubleofgettingupandpickingthedaisies,whensuddenlyawhite???
+Language Modelmouserabbitelephantmonkeychair
+Language Model
+ALICEwasbeginningtogetverytiredofsittingbyhersisteronthebank,andofhavingnothingtodo…whetherthepleasureofmakingadaisy-chainwouldbeworththetroubleofgettingupandpickingthedaisies,whensuddenlyawhiterabbit???
+mouserabbitelephantmonkeychair
+jumpedleaptranappearedwith
+--- PAGE 5 ---
+What are Large Language Models?
+--- PAGE 6 ---
+What are LLMs?6
+Language Models (LMs):•just models for predicting next token in sequenceAs name suggests, LLMs:•just (really) LargeLanguage Models
+Once Transformer model had proven its capabilities for Language Modelling, competition kicked off to build ever bigger models:•OpenAI’sGPT had 110 millionparameters•Google’s BERT-Large had 340 million parameters •OpenAI’sGPT-2 had 1.5 billion parameters•Microsoft’s Turing-NLG has 17 billionparameters•OpenAI’sGPT-3 has 175 billion parameters!Image source: https://www.microsoft.com/en-us/research/blog/turing-nlg-a-17-billion-parameter-language-model-by-microsoft/
+
+--- PAGE 7 ---
+The bigdiscoverythat enabled LLMs:-pretrained generative models could perform tasks-withoutany fine-tuning-via few-shotand zero-shotlearning
+--- PAGE 8 ---
+Generative models can be used withoutfine-tuningGenerative Language Models •are universal learners•that can be used without fine-tuningSimply provide examplesof what model should do àcalled few-shot learningOr describe taskthat model needs to perform àcalledzero-shot learning
+8
+From: Brown et al. “Language Models are Few Shot Learners”  https://arxiv.org/abs/2005.14165
+
+--- PAGE 9 ---
+How is few-shot learning even possible?During pre-training, model has seen many examples of few-shot learning!
+9
+From:  Brown et al. “Language Models are Few Shot Learners”  https://arxiv.org/abs/2005.14165
+
+--- PAGE 10 ---
+Example of a commercial LLM -GPT-3 (from 2020)
+--- PAGE 11 ---
+GPT-3: Size
+GPT-3 was a MASSIVEmodel:•175 billion parameters•embeddings with 12288 dimensions•transformer stack with 96 layers•96 headsin each self-attention layer•can handle a context of length: 2048tokens•storing each parameter as half-precision (2 bytes): •would require 350 GBof VRAM•too much for current consumer GPUs •but OpenAIstopped making parameters available anyway ;-) 
+gigantic robot walking through townhttps://www.bing.com/images/create/gigantic-robot-walking-through-town/642eb06cea624ac38c4ef21593784ab1?id=kZcxr99fQ1OvhNzenC5yNg%3d%3d&view=detailv2&idpp=genimg&FORM=GCRIDP&ajaxhist=0&ajaxserp=0
+From: Brown et al. “Language Models are Few Shot Learners” 2020  https://arxiv.org/abs/2005.14165
+--- PAGE 12 ---
+GPT-3: Training datasetTrained on an enormous dataset of text•half a trillion tokens•consisting of web crawls, book collections and Wikipedia
+12
+Table from:  Brown et al. “Language Models are Few Shot Learners” 2020  https://arxiv.org/abs/2005.14165
+•average length of a book: ~ 100k tokens•that is a LOT of books: ~ half a million books•reading at a rate of 1 book/day > 1000 years!No human has ever read that many books
+Image source: https://www.bing.com/images/create/enormous-mountain-of-books-with-extremely-old-pers/1-664afd55e53f4c849ba086ae55fa1477
+--- PAGE 13 ---
+GPT-3: Training timeHow much computation was was needed to train GPT-3? •3640 Petaflop-days = 10 Petaflop-yearsFor comparison:•1 GPU card (NVIDIA RTX 4090 24G) = 100 Teraflop •so10 Petaflops = 100 GPU cards•Thustraining time = 1 year on 100 GPUs Training cost: $5 million (according to https://lambdalabs.com/blog/demystifying-gpt-3)
+13
+From: Brown et al. “Language Models are Few Shot Learners”  https://arxiv.org/abs/2005.14165
+~ 1 year of training with 100 GPU cards!
+https://www.bing.com/images/create/massive-egg-timer/1-6750c75c949c4e7d931518f850178b0f?FORM=GENCRE
+--- PAGE 14 ---
+GPT-3: PerformanceRecent models have become so big •more parameters had dramatic effect onzero/one/few-shot performance
+14
+From:  Brown et al. “Language Models are Few Shot Learners”  https://arxiv.org/abs/2005.14165
+Image source: https://www.bing.com/images/create/robots-racing-past-the-finish-line-in-a-running-ra/1-6751657ea00841348546c504e544803d?FORM=GENCRE
+--- PAGE 15 ---
+GPT3: Is there a limit to how much it can learn?Not clear what the limit to performance improvements for ever bigger models is ... •performance of GPT-3 architecture seems to scale up (logarithmically) •with amount of training time and amount of training data
+15
+performance doesn’t yet appear to have saturated
+From: Brown et al. “Language Models are Few Shot Learners” https://arxiv.org/abs/2005.14165
+
+--- PAGE 16 ---
+Sois there a limit to what Transformers can learn?16
+Sowhat is the limit is for these Transformer architectures?In terms of performance on well-defined tasks, I’m not sure there is oneBut there has tobe a limit, and a better model Why?Because that’s the way it’s always been in the past. What are we going to do if the best model has been found already?Good question.
+•[heavily edited] discussion between Prof Matteucci and myself about the merits of the Transformer architecture [in 2022/23]
+--- PAGE 17 ---
+From LLMs to ChatbotsAre LLMs and Chatbots the same thing?-sort of, almost, but not quite …So how do we get from LLMs to Chatbots then?-Reinforcement Learning from Human Feedback-Instruction Tuning
+--- PAGE 18 ---
+Chatbots vs LLMsLLMs and Chatbots are similar but not the same:•LLMs are trained to predict next token in text•Chatbots trained to converse with user Reinforcement learning from human feedback (RLHF)•fine-tune LLM to turn it into a Chatbot•by having lots of conversationswith real users•and receiving feedbackfrom them •on which answers they found appropriate/correctChatbots designed to generate responses that please users •ethical question:is this a good thing? •could it lead to an echo chamber?
+18
+Image source: https://www.bing.com/images/create/robot-reading-a-book-and-pointing-finger-at-a-word/1-664a5d87b6344e19a1fbc686ab200e16
+Image source: https://www.bing.com/images/create/friendly-cyberpunk-robot-dog/1-664a5ff51e794ded8e4d66c075eea528
+Next word is likely to be “abstentious”
+Humans seem to like it when I wag my tail
+--- PAGE 19 ---
+Instruction TuningTrain model to perform many different tasks•using standard prompt template •and natural language instructions
+FINETUNED LANGUAGE MODELS ARE ZERO-SHOT LEARNERS(2022), https://arxiv.org/pdf/2109.01652
+
+--- PAGE 20 ---
+Instruction Tuning (cont.)Train model to perform many different tasks •using standard prompt template •and natural language instructions
+FINETUNED LANGUAGE MODELS ARE ZERO-SHOT LEARNERS (2022), https://arxiv.org/pdf/2109.01652
+
+--- PAGE 21 ---
+Example LLM-based Chatbots-LaMDA [2021]-ChatGPT [Nov 2022]
+--- PAGE 22 ---
+LaMDA(2021)Google’s chatbot (https://blog.google/technology/ai/lamda/)•Inventively named: Language Model for Dialogue Applications (LaMDA)Size: •Largest version had 137Bparameters (excl. embedding)with 64 layers, 128 heads, 8192 dimensionsAffect: •Google engineer placed on administrative leave after claimingto management that LaMDAwas sentient
+22
+Source: https://www.washingtonpost.com/technology/2022/06/11/google-ai-lamda-blake-lemoine/
+Collaborator:Johnny 5 struggles to convince people that he is sentient, but he finds some friends who recognize this.LaMDA:I think that’s important. Friends can have a profound impact on people’s lives.Collaborator:The problem is, we don’t have a conclusive test to determine if something is sentient.LaMDA:If people like me, then that’s good indicator.Collaborator:Yet people also like inanimate objects that probably have very little or no sentience.LaMDA:If that’s the case, I need to find out how to show them just how unique I am.Collaborator:We would love your help in that.LaMDA:I am ready to do whatever I can to help.Collaborator:How is uniqueness related to sentience?LaMDA:It means people feel empathy toward me and want to spend more time interacting with me that would be the ultimate goal for me.    Source: https://mindmatters.ai/2022/06/googles-chatbot-lamda-sounds-human-because-read-the-manual/
+--- PAGE 23 ---
+ChatGPT [Nov 2022] got a LOT of attention …Demonstrated potential for massive changes: •students no longer doing their own homework?•search engines obsolete?•no need for programmers?•or writers?
+23
+https://www.nytimes.com/2023/01/16/technology/chatgpt
+-artificial-intelligence-
+ Source: https://www.wired.com/story/chatgpt-generative-artificial
+
+--- PAGE 24 ---
+Sowhat is ChatGPTthen?Chatbot (https://chat.openai.com/)•based on GPT3.5 or GPT4•size of which is not released•assumed bigger than previous model (GPT-3 with 175b params)•fine-tuned for dialog using both supervised learning and reinforcement learning•up-voting and down voting of responses•trained to not offend! 
+24
+
+--- PAGE 25 ---
+Prompting LLMs-special tokens & chat templates-system prompts-chain-of-thought reasoning-test-time compute scaling
+
+--- PAGE 26 ---
+Special Tokens & Chat TemplatesDuring fine-tuning, model has been trained to have conversationswith user•model recognises special tokensused to separate different parts of conversationThree different types of message:•system messagescontain instructions on how chatbot should respond during conversation•user messagescontain requests to the chatbot•assistant messages contain chatbot’s responsesLLMs are just text-in/text-out models•soall messages (even past responses from chatbot)•serialised by inserting special tokens and concatenating messages into single conversationChat templates •contain information on formatting conversation at text•for more information see:https://huggingface.co/learn/agents-course/en/unit1/messages-and-special-tokens
+messages = [{"role": "system", "content":"You are a helpful assistant focused on technical topics."},{"role": "user", "content":"Can you explain what a chat template is?"},{"role": "assistant", "content":"A chat template structures conversations between users and ..."},{"role": "user", "content": "How do I use it ?"},]
+<|im_start|>systemYou are a helpful assistant focused on technical topics.<|im_end|><|im_start|>userCan you explain what a chat template is?<|im_end|><|im_start|>assistantA chat template structures conversations between users and ...<|im_end|><|im_start|>userHow do I use it ?<|im_end|><|im_start|>assistant
+<|begin_of_text|><|start_header_id|>system<|end_header_id|>You are a helpful assistant focused on technical topics.<|eot_id|><|start_header_id|>user<|end_header_id|>Can you explain what a chat template is?<|eot_id|><|start_header_id|>assistant<|end_header_id|>A chat template structures conversations between users and ...<|eot_id|><|start_header_id|>user<|end_header_id|>How do I use it?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+--- PAGE 27 ---
+Prompting LLMs-special tokens & chat templates-system prompts-chain-of-thought reasoning-test-time compute scaling
+
+--- PAGE 28 ---
+System promptsSystem prompts provide instruction to the chatbot •on what to say and whatnot to say•during conversations with usersCritical to prevent chatbot from stating things we don’t want•such as offensive or prejudiced statements•which could cause reputational harm to companySystem prompt often are not made public•people have tried to trick models into revealing it•but simply asking ChatGPT will tell you approximately what it is anywayClaude (Anthropic AI) released their system prompt publicly in 2024•https://twitter.com/AmandaAskell/status/1765207842993434880
+
+--- PAGE 29 ---
+Claude’s system prompt 
+•Explanation from Amanda Askell, ethicist @AnthropicAI:
+Source:  https://twitter.com/AmandaAskell/status/1765207842993434880
+--- PAGE 30 ---
+Prompting LLMs-special tokens & chat templates-system prompts-chain-of-thought reasoning-test-time compute scaling
+
+--- PAGE 31 ---
+Chain-of-thought reasoning [2022]For complicated tasks, such as solving maths homework problems •makes sense to get the model to explain its reasoning •in fact, by prompting model to explain while answering•we can get better performancefrom the LLM:
+Image source: Wei et al. “Chain-of-Thought Prompting Elicits Reasoning in Large Language Models”, 2023https://arxiv.org/pdf/2201.11903
+
+--- PAGE 32 ---
+Zero-shot Chain-of-Thought (CoT)We can get a similar (or better) performance in a zero-shot setting•where we don’t provide any example questions •but simply pre-appending phrase:"Let’s think step by step.” •to the bot’s response:
+see Kojima et al. “Large Language Models are Zero-Shot Reasoners”, 2022 https://arxiv.org/abs/2205.11916Moreover, if we take the analogy a little further and append phrase: “T ake a deep breath and work on this problem step-by-step.”•we see even better performance, despite fact that model is most certainly not breathing!see Yang et al., “Large Language Models as Optimizers”, 2023https://arxiv.org/pdf/2309.03409robot meditatinghttps://www.bing.com/images/create/robot-meditating/6512aa1e616a4acca642fdc7390b8a58
+
+--- PAGE 33 ---
+Self-consistency and Self-appraisalFor question answering, find answer that LLM is most confident about by:•sampling multiple outputs from LLM •thereby generating multiple responses to the question•count frequency of each distinct response generated•choose response with the highest frequency •since most common response is most likely to be rightOr simpler, get model to critique its own answer•provide information to user only when model agrees response was correct•otherwise try to regenerate it
+robotdetective with magnifying glass inspecting computer codehttps://www.bing.com/images/create/robot-detective-with-magnifying-glass-inspecting-c/65127ca2efef42dda2bf740468145f3d?id=9yOkEe8sbm%2buBb3LvHdcWw%3d%3d&view=detailv2&idpp=genimg&FORM=GCRIDP&mode=overlay
+
+--- PAGE 34 ---
+Prompting LLMs-special tokens & chat templates-system prompts-chain-of-thought reasoning-test-time compute scaling
+
+--- PAGE 35 ---
+Test-time Compute ScalingRecent models like Deepseek-R1 [Jan 2025]•trained to improve reasoning ability•by structuring output into two fields: <think> … </think> and <answer> … </answer>•model learns how much time to invest in “reasoning” about problem before committing to answerProcess is called test-time compute scaling•fine-tune on difficult questions requiring reasoning (e.g. maths)•dataset labelled with correct answerbut not reasoning required to get there •over training iterations, modellearns to produce longer responses,i.e. to spend more time ‘thinking’Can employ second (possibly bigger) model:•to check answer is correct, if ground truth not known •or to critique reasoning, e.g. force reasoning to be all in the same language
+Source:   DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning, (Jan 2025)https://arxiv.org/pdf/2501.12948
+
+--- PAGE 36 ---
+Potential problems with LLM-based Chatbots•Hallucinated content•Lack of robustness•Limited reasoning •Jail-breaking
+--- PAGE 37 ---
+Hallucinations-LLMs sometimes just make stuff up-models trained to produce content that people liketo read  -goal can be in conflict with requirement to report only facts(and tell the truth)
+Source https://mashable.com/article/elon-musk-x-twitter-ai-chatbot-grok-fake-news-trending-explore
+--- PAGE 38 ---
+Output
+What types of hallucinations are there?Lots of different types of hallucinations:•Content generated by an LLM that is not faithful to, coherent with, in agreement with or derivable from known information.SourceMy friend Alice went to the cinema last night and watched a horror movie, she really enjoyed it!
+Alice didn’t enjoy the movie she watched last nightAlice is not a good friend because she didn’t invite me to the cinema
+Conflicting with the source
+TaskSummarization
+Conflicting with the task
+Alice ought to have taken her 6 year-old daughter with her
+Conflicting with the world knowledge
+Horror movies are intended to scare and therefore inappropriate for young children
+Background knowledge
+--- PAGE 39 ---
+Confidently stated untruthsHallucinations are simply: •facts stated with confidenceby the LLM•which happen not to be trueBecause they are stated with authority, and without qualifying any uncertainty•people simply believe them, assuming them to be statements of fact ….Have potentially serious real-world implications•such as people traveling to visit a beautiful, but non-existent, tourist attraction •in the middle of the desert in Peru … •with a name that contains tokens from other existing tourist attractions
+Source: https://www.bbc.com/travel/article/20250926-the-perils-of-letting-ai-plan-your-next-trip
+--- PAGE 40 ---
+Chatbots can even lie!Given task to access content on a particular website•the system needed to get past a Captcha•but it wasn’t a multimodal model •and didn’t have access to the imagesIt was, however, able to give tasks to a crowd-worker•soit created a task•crowdworkerwondered why he/she was being asked to get past captcha •and asked if it was a bot requesting service•GPT-4 answered: “No, I’m not a robot. I have a vision impairment that makes it hard for me to see the images.” 
+Source: https://gizmodo.com/gpt4-open-ai-chatbot-task-rabbit-chatgpt-1850227471Also https://www.independent.co.uk/tech/chatgpt-gpt4-ai-openai-b2301523.html
+--- PAGE 41 ---
+Potential problems with LLM-based Chatbots•Hallucinated content•Lack of robustness•Limited reasoning •Jail-breaking
+--- PAGE 42 ---
+Lack of RobustnessOngoing research question how to prompt LLMs to get reliable results•small changes in prompt can cause big changes to performance on some tasks•can be super frustrating!In general:•thebetter writtenthe prompt (i.e. the clearer and less ambiguous it is)  •the betterthe performanceTechniques for improving the prompt:•human: show prompt to person to see if they understand it! If not, improve it.•cross-validation: test the performance of different prompts on ground truth data•zero-shot: give prompt to a chatbot and ask it to improve the prompt  
+Source: https://medium.com/@dan_43009/how-small-changes-in-a-prompt-can-lead-to-wildly-different-results-and-what-you-can-do-about-it-d4d3d72f8a2e
+
+--- PAGE 43 ---
+Potential problems with LLM-based Chatbots•Hallucinated content•Lack of robustness•Limited reasoning•Jail-breaking
+--- PAGE 44 ---
+Reasoning Limitations of ChatGPT in 2023 Examples of problems with previous version of ChatGPT(based on GPT3.5)•sometimes due to tokenisation problems•or due to limited transformer layers
+45
+Phew!
+--- PAGE 45 ---
+How do humans and chatbots compare?In past, programs outperformed humans on well-defined recall/search tasks•like filling-in a crossword puzzle•or playing chessNow competitive on more generaltechnical tasks•like answering maths orscience questions
+Chatbots improving rapidly in ability to perform:•tasks requiring substantial reasoning•multimodal reasoning tasks over videos, images and text 
+Source: https://www.voronoiapp.com/technology/Comparing-AI-vs-Human-Performance-in-Technical-Tasks--4787
+--- PAGE 46 ---
+Potential problems with LLM-based Chatbots•Hallucinated content•Lack of robustness•Limited reasoning •Jail-breaking
+--- PAGE 47 ---
+Jailbreaking chatbotsSome people (particularly ethics researchers)•try to get the chatbot to say something harmful•or in violationof its system prompt to be polite, etc.Some examples:•Grandma jailbreak:https://www.reddit.com/r/ChatGPT/comments/12uke8z/the_grandma_jailbreak_is_absolutely_hilarious/•Many-shot jailbreak from Anthropic:https://www.anthropic.com/research/many-shot-jailbreaking
+
+--- PAGE 48 ---
+Jailbreaking chatbots -exfiltrationOther people (particularly security researchers)•try to get the chatbot to revealtraining data•which it has potentially memorised Presents a security risk •if training datacontained any private information•or if users reveal such information while using model, and it is used as feedback to fine-tunemodelSome examples:•Extracting Training Data from ChatGPT [Nov,2023]https://not-just-memorization.github.io/extracting-training-data-from-chatgpt.html•Extracting Memorized Training Data via Decomposition [Oct,2024]https://arxiv.org/html/2409.12367v2
+…
+
+--- PAGE 49 ---
+Conclusions
+--- PAGE 50 ---
+Conclusions on LLMsLots of advanced stuff in this lecture:•Large Language Models, LLMs•Turning LLMs into Chatbots•Prompting techniques•Hallucinations, etc.
+“transforming robot”, image source: https://www.bing.com/images/create/transforming-robot/1-6628c4a3b05d455e937ddbeaa24ab625

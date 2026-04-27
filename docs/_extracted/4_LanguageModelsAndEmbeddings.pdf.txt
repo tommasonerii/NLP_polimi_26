@@ -1,0 +1,400 @@
+
+--- PAGE 1 ---
+Mark Carman
+Language Models and Word EmbeddingsNatural Language ProcessingSome slide content based on textbooks: Speech and Language Processing: An Introduction to Natural Language Processing, Computational Linguistics, and Speech Recognitionby Daniel Jurafskyand James H. Martin
+
+--- PAGE 2 ---
+Mark Carman
+Lecture content:•What is language modelling?•Markov models•Evaluating language models•Problems with Markov models •Revision: Neural Networks •Word embeddings•Properties of word embeddings•Applications of word embeddings•Extensions
+17 March 2026
+Miner Image source: https://freesvg.org/miner-1574424884
+ALICEwasbeginningtogetverytiredofsittingbyhersisteronthebank,andofhavingnothingtodo:onceortwiceshehadpeepedintothebookhersisterwasreading,butithadnopicturesorconversationsinit,“andwhatistheuseofabook,”thoughtAlice,“withoutpicturesorconversations?”Soshewasconsideringinherownmind,(aswellasshecould,forthehotdaymadeherfeelverysleepyandstupid,)whetherthepleasureofmakingadaisy-chainwouldbeworththetroubleofgettingupandpickingthedaisies,whensuddenlyawhiterabbitwithpinkeyesranclosebyher.Therewasnothingsoveryremarkableinthat;nordidAlicethinkitsoverymuchoutofthewaytoheartheRabbitsaytoitself,“Ohdear!Ohdear!Ishallbetoolate!”(whenshethoughtitoverafterwards,itoccurredtoherthatsheoughttohavewonderedatthis,butatthetimeitallseemedquitenatural);butwhentheRabbitactuallytookawatchoutofitswaistcoat-pocket,andlookedatit,andthenhurriedon,Alicestartedtoherfeet,foritflashedacrosshermindthatshehadneverbeforeseenarabbitwitheitherawaistcoat-pocketorawatchtotakeoutofit,and
+
+--- PAGE 3 ---
+Mark Carman
+What is Language Modeling?And why should I care about it?
+Source: https://pixabay.com/photos/bored-female-girl-people-school-16811/
+--- PAGE 4 ---
+Mark Carman
+A language what?
+A statisticallanguage modelis aprobability distributionover sequences of words•If we have a distribution over sequences of words:P(w1,w2,w3,…,wn) = ϕ([w1,w2,w3,…,wn])•we can conditionthe next word on previous words:P(wn|w1,w2,…,wn-1) = P(w1,w2,…,wn-1,wn) /P(w1,w2,…,wn-1) •and samplenew sequencesfrom itw* ~ P(w |w1,w2,…,wn-1) In other words, language modelsare general-purpose text generators§just like continually selecting the predicted text on your mobile phone
+What is the probability of a sequence of words? •just how likely you are to hear somebody say it•some sequences more likely than others, for example:P(“why does that kid have a bike?”) > P(“why does that kid have a moustache?”)> P(“a moustache why that kid does have?”)
+--- PAGE 5 ---
+Mark Carman
+Buzz
+Way back in 2019 there was a lot of buzz about language models when GPT-2was released§OpenAI initially didn’t release model parameters due to security concerns§but could a language modelreally be that dangerous?
+5
+--- PAGE 6 ---
+Mark Carman
+Impact ...In 2019 lots of discussion about fake news campaigns•using Language Models to create fake news could be a lucrative business model ...•and in geopolitics theautomated penmay be mightier than the sword
+
+--- PAGE 7 ---
+Mark Carman
+How do Language Models work?
+--- PAGE 8 ---
+Mark Carman
+How do Language Models work?Language Models •discover statistical regularities in text•and use them to predict the next wordExample of a statistical regularity?•next token is often a repeatof a previous word from same textIf we can predict with some accuracy next word:•iterating forward allows us to predict entire sentencesSo how can we discover and use such statistical regularities?
+… ??
+Source: https://commons.wikimedia.org/wiki/File:John_Tenniel_-_Illustration_from_The_Nursery_Alice_(1890)_-_c03757_07.jpg
+--- PAGE 9 ---
+Mark Carman
+Markov Models
+Andrey Markovfamous mathematicianImage source: https://en.wikipedia.org/wiki/Andrey_Markov
+Why not predict the next word based on fixed number of previous words? **
+**I’m pretty sure that Andrey Markov never actually said this 
+😜
+Hey Andrey, you look like a smart guy. Sotell me, …•if natural language utterances can be of arbitrary length,•and we only have a finite set of parametersto model them•how can we define a probability distribution over them?
+--- PAGE 10 ---
+Mark Carman
+Markov models
+Simplest models count n-gramsin large corpus•n-gram = sequence of nwords
+•longer n-grams give better predictions
+‘For the Duchess. An invitation from the Queen to play croquet.’ The Frog-Footman repeated, in the same solemn tone, only changing the order of the words a little, ‘From the Queen. An invitation for the Duchess to play ... ???
+P(croquet| play) = N(play croquet) N(play)
+P(croquet| to play) = N(to play croquet) N(to play)
+P(croquet| Duchess to play) = N(Duchess to play croquet) N(Duchess to play)
+Query Google Hitsplay station     16100000play sport        2680000play gym          2430000...play croquet221000
+Query Google Hitsto play sport   403000to play croquet119000...to play gym 1790to play station           178
+Query Google HitsDuchess to play croquet  11000Duchess to play station      0Duchess to play sport0Duchess to play gym 0...
+10
+--- PAGE 11 ---
+Mark Carman
+Smoothing, Back-off & InterpolationSmoothing: add small constant to all counts before estimating probabilities
+§here 𝛼is pseudocount(often 𝛼= 1), which prevents zero probability for previously unseen n-grams§and V is the vocab sizeBackoff: don’t invent value for unseen n-gram just but backoffto (n-1)-gram§souse trigram count if you have it, otherwise revert to bigram model, else unigram§e.g., when estimating P(z|x,y):if count(xyz)=0 use P(z|y) instead §and if count(yz)is also zero, use P(z) instead
+Interpolation: interpolate higher and lower order models§e.g.trigram, bigram, unigram estimates:
+§how to set the lambdas? §choose values that maximize probability on held-out development data
+P(wn| wn-1,wn-2) = [count(wn-2wn-1wn) + 𝛼] / [count(wn-2wn-1) + V*𝛼]
+--- PAGE 12 ---
+Mark Carman
+Generating text from a Markov model
+--- PAGE 13 ---
+Mark Carman
+Choices for generating textCan use estimate of next word probabilityin various ways to generate text:•Greedychoose most probable term: w*= argmaxtP(wn=t | wn-k ,…,wn-1)•Random samplingsample term according to probabilities:  w*~ P(wn| wn-k ,…,wn-1)•Top-ksamplinglimit sampling to k most likely terms: w* ~ P(wn| wn-k ,…,wn-1)1(wn∈top-k)•Temperature sampling limit sampling to likely terms by raising probabilities to power w* ~ P(wn|wn-k ,…,wn-1)1/T where T is the temperature (higher temperature = more uniform sampling)•Beam search search forward one step at a time for most likely sequence (wn,wn+1,wn+2,wn+3,wn+4,…)while limiting the search space to a maximum set of kcandidate sequencesGreedy techniques always produce exactly same text, while sampling produces different text each time 
+🎲
+🎲
+--- PAGE 14 ---
+Mark Carman
+Examples of generated textTrained on a corpus of Wall Street Journal articles •using unigrams P(word), text is just random:
+•using bigrams P(word|word1), text is a lot better:
+•and trigrams P(word|word1,word2), text is almost believable:
+
+--- PAGE 15 ---
+Mark Carman
+Examples of generated text•Generated text using a corpus of Shakespeare’s playsto estimate different Markov models:
+
+--- PAGE 16 ---
+Mark Carman
+Bit like Finnegan’s Wake … Output from low-orderNgramLM •reads a bit like Finnegan’s Wake from James Joyce •non-sensical but potentially grammatical text
+--- PAGE 17 ---
+Mark Carman
+How can we evaluatea Language Model?
+✅
+❎
+✅
+✅
+❎
+--- PAGE 18 ---
+Mark Carman
+Types of LM evaluationHow do we know if one model is better than another? Extrinsic evaluation§use model in a downstream task (e.g. as a spelling corrector) and evaluate performance on that taskIntrinsicevaluation §train parameters of model on training set and test model performance on held-out dataset§use likelihood that model would produce the new data to  evaluate how well it is doing
+--- PAGE 19 ---
+Mark Carman
+What is Perplexity?
+Perplexity of language model quantiﬁes level of surprise/confusionat seeing new text§measures how unlikely theobserved data isunder the modelCalculating perplexity: 1.compute probability of observed sequence P(w1,w2,…wn)under model •for a bigram model have: P(w1,w2,…wn)= P(w1)P(w2|w1)P(w3|w2)… P(wn|wn-1)2.normalize probability for length of text sequence•i.e.compute “average” per-word probability P(w1,w2,…wn)1/n3.invert probability to compute uncertainty: PP(w)= 1/P(w1,w2,…wn)1/n= P(w1,w2,…wn)-1/n
+Minimizing perplexity same as maximizing probability§so lower perplexity= better model
+🤔
+
+--- PAGE 20 ---
+Mark Carman
+Perplexity, nLLand CEHow does Perplexity relate to measures we usually use to train/evaluate predictive models?§pretty much the same concept!•Perplexity§inverse of geometric mean of probability of correctly predicting next word•Negative log Likelihood (nLL)§negative logarithm of probability of sequence §dividing by sequence length gives per-word nLL§soperplexity is just 2nLL
+•CrossEntropy(CE) §expected (empirical average) log surprise under model§number of bits needed to quantify surprise
+🤔
+Formulae source https://towardsdatascience.com/perplexity-in-language-models-87a196019a94
+
+--- PAGE 21 ---
+Mark Carman
+Aside: Perplexity of GPT-4What is the perplexity of GPT-4?§according to the GPT-4 Technical Report (https://cdn.openai.com/papers/gpt-4.pdf)
+chance of correctly predicting the next word:
+= 1/21= 1/2 = 1/22= 1/4 = 1/23= 1/8 
+log2[PP(w)] 
+--- PAGE 22 ---
+Mark Carman
+Problem with NgramLanguage Models
+--- PAGE 23 ---
+Mark Carman
+Problem with Markov models
+Problem:•as ngets larger, chance of ﬁnding sequence in corpus drops exponentially•meaning there is never enough training data•continuously backing off to shorter n-grams greatly limits power of the model
+‘For the Duchess. An invitation from the Queen to play croquet.’ The Frog-Footman repeated, in the same solemn tone, only changing the order of the words a little, ‘From the Queen. An invitation for the Duchess to play ... ???P(croquet| play) = N(play croquet) N(play)
+P(croquet| to play) = N(to play croquet) N(to play)P(croquet| Duchess to play) = N(Duchess to play croquet) N(Duchess to play)
+Query Google Hitsplay station     16100000play sport.       2680000play gym          2430000...play croquet221000
+Query Google Hitsto play sport403000to play croquet119000...to play gym 1790to play station178
+Query Google HitsDuchess to play croquet  11000Duchess to play station0Duchess to play sport0Duchess to play gym 0...
+23
+--- PAGE 24 ---
+Mark Carman
+Markov models just don’t scaleIn order togenerate reasonable language •need to model very long distancedependenciesMemory and data requirements: •scale exponentially in length of observable dependency•soMarkov models just don’t scale§nonetheless, they were still state-of-the-art not that long agoNeed instead methods that can both•generalisefrom limited data •handle longer dependencies
+‘For the Duchess. An invitation from the Queen to play croquet.’ The Frog-Footman repeated, in the same solemn tone, only changing the order of the words a little, ‘From the Queen. An invitation for the Duchess to play ... ???
+24
+--- PAGE 25 ---
+Mark Carman
+Aside: Distributional Semantics-measuring the semantic distance between words …
+--- PAGE 26 ---
+Mark Carman
+Aside: Distributional Semantics (2010)Consider an unknown word kzvarit. What could it mean?•now you observe it in a few contexts:§two bottles of kzvarit, please!§I like my kzvariton the rocks.§he used to drink a lot of kzvarit, but he was never really drunk.•sowhat is kzvarit?•similar word is martini…§a bottle of martini, please!§I drink my martinion the rocks.§he drank a lot of martini, butnever got drunk. …Can we automatically compute that martiniand kzvaritare similar, while other words like catare very different?•count how often words appear in certain contexts …•and check if similar words indeed appear in similar contexts
+Example from Evert, Baroni, Lenci, 2010, Distributional Semantic Models Tutorial at NAACL-HLT 2010
+contexts
+target words
+--- PAGE 27 ---
+Mark Carman
+Measuring similarity between words …Simply represent target words bysum of BOW vectors over contexts•compute between vectors using cosine similarity
+Question: Sois catmore similar todogthan knife?
+contexts
+target words
+Four leggedanimal from the genus …[get: 52, use:4, …, feed:121, …]
+🐈⬛
+🦮Man’ssbest friend, four/legged … [get: 115, use:10, …, feed:178, …]
+⛵Vessel for sailngon water[get: 59, use:23, …, feed:0, …]
+🔪Device for cutting …[get: 51, use:10, …, feed:2, …]
+--- PAGE 28 ---
+Mark Carman
+Alternative: Word Embeddings
+--- PAGE 29 ---
+Mark Carman
+Word Embeddings -what are they?
+Word embeddings appeared around 2013 and improved performance on just about every NLP taskWhat are they?§dense vectors representing words in ahigh dimensional space§typically have between 100 & 1000 dimensions§very low dimensional compared to one-hot encoding of terms, since typical document collections have vocabularies of 100k to 1m tokensNote: §Just like one-hot encodings word embeddings can be aggregatedto represent sentences and documents
+00000000000000…01.00000000000000…000000000000000000000000000
+one-hotvector200,000
+embeddingvector0.21-1.130.15-0.323.28-0.33-0.709.150.11-0.83:0.48200
+--- PAGE 30 ---
+Mark Carman
+Motivating word embeddings
+30
+Your task is to ﬁll in the blank in the sentence:‘Sure Sally, let’s have a skype call at 3pm _______ the 3rdof June.’What word could ﬁt here?§prepositions: on, by, before, around, near, …§days of the week: Monday, Tuesday, Wednesday, … §timezones: GMT, CET, EST, AEST, …Note: very few words ﬁtthe context§those that do come in groupsthat are semantically related to one otherEmbeddings are produced by supervised machine learning models§models trained to predict missing word based on surrounding context§context may include only previous words (causal models) §or also future words (non-causal models) 
+--- PAGE 31 ---
+Mark Carman
+Supervised Learning Problem
+Predicting missing word:•Features:words in current context: §“Sure”, “Sally”, “let’s”, “have”, “a”, “skype”, “call”, “at”, “3pm”•Target:missing word from sequence §multi-class problem (estimate probability for every wordin vocab)Issue: even linear classiﬁer requires very large number of parameters! §multi-class linear classiﬁer (e.g. Logistic Regression ) to predict missing word§with bag-of-words feature vector (so ignoring word order) §requires parameter vector (of size of vocabulary) for each vocab term§so overall number of parameters will be quadraticin the size of the vocab§if vocab=100 thousand, then we would have 10 billionparameters!!§which used to be a lot before deep learning came along 
+🤣
+😂
+x1 = feature 1
+x2 = feature 2
+x3 = feature 3
+b
+θH
+nodes topredict each possible missing word (applying softmaxproduces probability distribution over vocabulary)
+bag-of-words representationof words in context window
+…
+…
+W ∊ℝV⨉V
+
+--- PAGE 32 ---
+Mark Carman
+Revision: What are Neural Networks
+--- PAGE 33 ---
+Mark Carman
+Brains and NeuronsBrains composed of large number of neurons§human brain has tens of billions §massive graph: each node connects to 10,000+ othersNeuron is simple processing unit: §receives electrochemical stimulus from other neurons§triggers output signal if sum of inputs exceeds thresholdBrain learns to perform complicated tasks§by connecting neurons in certain patterns
+33
+Rat brain under microscope (by Gerry Shaw), source:https://commons.wikimedia.org/wiki/File:Culture_of_rat_brain_cells_stained_with_antibody_to_MAP2_(green),_Neurofilament_(red)_and_DNA_(blue).jpg
+--- PAGE 34 ---
+Mark Carman
+Artiﬁcial Neural Networks
+Artiﬁcial Neural Networks (ANNs)•network of artiﬁcial (simple model of) neurons•long history:1940s: understanding how neurons in nervous system work1970s: von-Neumann architectures outpaced NNs1980s: renewed interest, but computation prohibitive2010s: massive resurgence in popularity•model neurons as simple step functions §weight inputsand thresholdto produce output value§using non-linear activation function•typical examples: sigmoid, tanh, rectiﬁed-linear unit (ReLU)•see: https://en.wikipedia.org/wiki/Activation_function
+34
+~x
+sigmoid
+tanh
+ReLU
+x1
+x2
+x3
+w1w2
+w3
+y
+--- PAGE 35 ---
+Mark Carman
+Neural Networks: conﬁgurationCreate different types of models by varying:•topology (shape) of network•activation function used•loss function optimized (e.g. binary cross-entropy) NNs made up of neurons arranged in layers•each layer receives inputs from previous layer •and if activated, emits outputs to next layer•internal (neither input nor output) layers are called hidden layers§allow model to ﬁnd non-linear decision boundaryParameters: •connection of two neurons has associated weight•neuron has associated bias(threshold)
+35
+~y=tanh(W2·tanh(W1~x+~b1)+~b2)
+~x ~y
+~y=tanh(W~x+~b)
+~x ~y
+
+--- PAGE 36 ---
+Mark Carman
+Example non-linear classiﬁcation problemConsider game of tic-tac-toe•aim is to classify boards a x-wins, o-wins or nobody-wins§9 dimensionalfeature vector:  
+Example of non-linear classiﬁcation problem •i.e. problem where no linear decision boundary can be found to separate the classesSimple two layerneural network can •ﬁrst layer of neurons learn to identify simple winning pattern §E.g. 3 vertical crosses or 3 diagonal crosses•second layer identiﬁes the winners §I.e. performs disjunction 
+XXXOOOx1x2x3x4x5x6
+x7x8x9
+x = (X,O,_,X,O,_,_,O,X)= (1,-1,0,1,-1,0,0,-1,1)
+~x ~y
+Identifies pattern:(X,X,X,*,*,*,*,*,*)Identifies pattern:(X,*,*,*,X,*,*,*,X)Checks if any X-winningpattern has occurred 
+--- PAGE 37 ---
+Mark Carman
+Neural Networks: trainingParameters learnt by process of backpropagation•initialize all weights/biases randomly•for each sample in training set, perform: 1)forward pass:feed input through network to calculate prediction2)backward pass: update parameters: §rewardconnections producing correct prediction§andpenalizethose contributing to wrong result Just a gradient descent routine§where nested function is being optimised§and chain rulefrom calculus used to compute derivative of loss function with respect to each layer of parameters 
+~y=tanh(W2·tanh(W1~x+~b1)+~b2)
+❋
+θ1
+θ0
+Loss(θ0,θ1)
+1.35
+-2.210.92-2.1882%
+18%
+↑
+↓
+1.42-0.31-2.93↓
+↑↓↑
+21.3
+3.12-1.99
+↑
+↓↑↑
+↓
+↑
+↓
+👍
+--- PAGE 38 ---
+Mark Carman
+Neural Networks: properties
+Neural networks are extremely powerful learners: •network with single hidden layer can learn any function, providing layer is wide enough•lots of variation in network structuresMany hyperparameters to tune for NN, including: •network architecture, •type of activation functionLots of hardware & software optimizations available for training NNs•more computationally expensivethan other learners, e.g. decision trees, linear classiﬁers
+
+--- PAGE 39 ---
+Mark Carman
+Word Embeddings:Word2Vec, GloVe& related models
+--- PAGE 40 ---
+Mark Carman
+Word2Vec
+Word2Vecdeveloped in 2013 by Mikolov et al.§following early work by Bengio et al. in 2003§later GloVein 2014 by Penington et al.Word2Vec solved the parameter space issue by using: 1.bag-of-words representation 2.neural network with single (linear) hidden layer3.training model in “discriminative” fashion by inventing negative examples
+nodespredict missing word (applying softmaxproduces probability distribution over vocabulary)bag-of-words representationof words in context window
+Low dimensional layer withlinear activation provides distributed representationof context words 
+…
+…
+W ∊ℝV⨉dWT
+--- PAGE 41 ---
+Mark Carman
+Word2Vec (cont.)Two versions of Word2Vec:•Continuous Bag of Words (cbow) model §trained to predict observed word based on all surrounding context words§context consists of all terms occurring in symmetric window around target term
+•Skip-gram(skip) model §trained to predict observed word given a single context wordSoskip-gram is just 1-to-1 prediction, while cbowis many-to-1 prediction
+…
+…
+WWTALL context words(bag-of-wordsrepresentation)
+CBOWpredictedwords
+…
+…
+WWTSINGLE context word(one-hot-encoding)
+Skip-grampredictedwords
+--- PAGE 42 ---
+Mark Carman
+It’s all just matrix decomposition …Word embeddings can be seen as a form of matrix decomposition•square count matrix: vocabulary ⨉vocabulary•contains word co-occurrencesin text within a ﬁxed-size context window•factorizing generalisesthe information in those windows•and produces word embedding vectors
+appleaardvarkzombieaardvarkapple
+zombie
+…zealot
+zealot…1                          99   12                        54 16       2    12 15              1                      911              1    1                    1    1            1      32                                    7
+≈
+✖WORDS
+WORDS
+Word embedding vectors
+--- PAGE 43 ---
+Mark Carman
+Techincaldetails of Word2Vec and GloVe
+--- PAGE 44 ---
+Mark Carman
+Word2Vec –detailsSkip-gram model:•predict target word cgiven observed word w using softmaxof dot product of embedding representations:§directly optimisingwas computationally intensive §because need to sum over all possible target words c’:•so Mikolovet al. sample some negative examples (words that were NOT observed)§and turn problem into binary classiﬁcation task(word pair observed, yes or no?) §to avoid nasty summation!§on GPU optimizing softmaxdirectly is not a problem nowContinuous bag of words model (cbow) •estimated exactly same way except context is sum of word vectors
+Follows explanation in Goldberg et al. https://arxiv.org/pdf/1402.3722.pdf
+
+--- PAGE 45 ---
+Mark Carman
+Alternative Embedding: GloVeAIM: give probabilistic interpretation to translation in embedding space§original paper:https://nlp.stanford.edu/pubs/glove.pdf§e.g.translation in space from “steam” to “ice” should increase chance of seeing word “solid”§soprojection of “ice” minus “steam” onto vector “solid” should be function of conditional probabilities
+•solving is equivalent to ﬁtting objective:§where wiand wkare embedding vectors, biand bkare biases, and Xikis their co-occurrence count•objective approximated by minimisinga weighted least squares objective §with some tricks needed to make function converge 
+(wi wj)T
+˜wk⇡f(
+P(k|i)
+P(k|j)
+)
+(wice  wsteam )T
+˜wsolid ⇡f(
+P(solid|ice)
+P(solid|steam)
+)
+P(solid|ice)>P (solid|steam)
+
+--- PAGE 46 ---
+Mark Carman
+Source: https://nlp.stanford.edu/pubs/glove.pdf
+Word2Vec or Glove? which is better?Which is best: Word2Vec (cbow), Word2Vec (skip-gram), or GloVe?•from GloVepaper: 
+•according to most sources skip-gram beats cbow§except for fastText(see next)•according to Levy et al. (http://www.aclweb.org/anthology/Q15-1016) word2vec is:§faster to train §has lower memory requirement§produces more accurate models46
+--- PAGE 47 ---
+Mark Carman
+Properties of Word Embeddings
+--- PAGE 48 ---
+Mark Carman
+Properties of Word EmbeddingsWord embeddings have many interestingand somewhat surprising propertiesSemantic clustering: •neighboursin the embedding space are semanticallyrelatedto one another
+Source https://nlp.stanford.edu/projects/glove/
+Closest vectors to GloVeembedding of the word “frog” are all related/similar concepts
+--- PAGE 49 ---
+Mark Carman
+Interpreting Word Embeddings
+Word embeddings provide dense distributed representation •where individual dimensions aren’t usually interpretable But translationin the space is meaningful•certain directions in the space have meaning•which means that semanticsis often additive•and analogiesare encoded in the embedding:man is to woman asking is to queen 
+Source: http://jalammar.github.io/illustrated-word2vec/
+Source https://www.tensorflow.org/images/linear-relationships.png
+Direction in the space encodes the male àfemale relationship 
+Example word vectors with colours representing values (red = positive, blue = negative). Distributed representation makes it difﬁcult to interpret individual dimensions 
+--- PAGE 50 ---
+Mark Carman
+Knowledge in Word EmbeddingsEmbeddings discover all sorts of relationships between words, for example: •part-of-speech: help àhelpful, pain àpainful•type-of relationships: red, green, blueàcolours•synonyms: brave ≈courageous•geographic: Chicago +state àIllinois
+Source: https://www.tensorflow.org/images/linear-relationships.png
+Embedding learns verb tense informationjust from co-occurrences!
+and capital city àcountry relationshipsagainjust from context information:Madrid  +“is the capital city of”    àSpain
+Tokyo     + “is the capital city of”    àJapan
+Hanoi     +“is the capital city of”    àVietnam
+--- PAGE 51 ---
+Mark Carman
+Uses of Word Embeddings
+--- PAGE 52 ---
+Mark Carman
+Uses of Word EmbeddingsCausal models:•restrict context words to come before missing word•language modelling: can be used for predicting next word in a sequence•with longer dependencies than possible with n-gram modelsNon-causal models:•can be used as additional feature vector for representing words•improve performance on most tasks •such as training classiﬁer to detect sentiment •or translating one language to another•because they make use of additional domain knowledge (semantics of words) 
+Christopher Manning (famous NLP researcher)https://en.wikipedia.org/wiki/Christopher_D._Manning
+Embeddings are the Sriracha sauce of NLP. They make everything taste work better
+Sriracha sauce: https://en.wikipedia.org/wiki/Sriracha
+____work
+--- PAGE 53 ---
+Mark Carman
+Word Embeddings help Language ModelsLow dimensional representation causes similar terms to share similar descriptions•allows model to generalizefrom semantically related examples
+•e.g.part-of-speechand hypernym(type-of) relationships implicitly encoded in embedding vector in additive manner
+the Duchessto play … ??
+Examples from corpus with similar contexts:•the Queento play croquet•the Duketo play chess
+the Duchessto play … ??
+Look for examples with any of these types•the [noun+person+female+royal]to play …
+--- PAGE 54 ---
+Mark Carman
+Useful for Mining TextEmbeddings place similar concepts close together•useful for discovering implied (but unknown) properties of them
+Visualisation from news article “Text mining facilitates materials discovery” by OlexandrIsayev,
+
+--- PAGE 55 ---
+Mark Carman
+Extensions of Word Embeddings
+--- PAGE 56 ---
+Mark Carman
+Sub-word embeddingsWord embeddings work well if vocabulary is ﬁxed •so cannot deal with new wordsin test set If we see a new word •e.g. a made-up word like: hippopotamiﬁcation(act of magically turning someone or into a hippopotamus)•we don’t have embedding for it!•and must just ignore it, despite fact that we can guess its meaning of word from letters contained in it  … 
+🙁Fasttext(2016 Bojanowski et al.)•split words into ﬁxed-length character sequences•learns embeddings for character n-grams•combines the embeddings to form words Advantage: deals nicely with morphologicallyrelated terms, so:§“believe”and “believing” have similar representations §as do “rain” and “rainfall”
+Embeddings are cool.
+=> 
+_
+Eme
+Embe
+mbed
+bedd
+eddi
+ddin
+ding
+ings
+_are
+_coo
+cool
+ool
+.
+🧙
+🦛
+⚡
+--- PAGE 57 ---
+Mark Carman
+Conclusions
+--- PAGE 58 ---
+Mark Carman
+ConclusionsLanguage models (LM):•predict the next word in a sequence and can be used to generate text•Markov models don’t scale to long enough n-grams•Perplexity is used to measure LM performanceWord embeddings •provide distributed representation of words as dense vectors in high dimensional space•capture the syntax and semantics of words from their usage•solve the limited generalization problem of n-gram language models  
