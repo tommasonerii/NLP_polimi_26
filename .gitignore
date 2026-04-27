@@ -57,7 +57,7 @@ checkpoints/
 
 # Notebook exports
 *.html
-*.pdf
+
 
 # Databases
 *.sqlite3
