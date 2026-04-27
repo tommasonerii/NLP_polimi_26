@@ -64,10 +64,15 @@ def build_tfidf(texts: list[str], max_features: int, min_df: int, ngram_max: int
 
 
 def build_bm25(texts: list[str]):
-    from rank_bm25 import BM25Okapi
+    import bm25s
 
+    print("Tokenizing corpus...")
+    # Keep the same tokenizer logic
     tokenized = [tokenize(text) for text in texts]
-    bm25 = BM25Okapi(tokenized)
+    
+    print("Building BM25 index...")
+    bm25 = bm25s.BM25()
+    bm25.index(tokenized)
     return {"kind": "bm25", "bm25": bm25}
 
 

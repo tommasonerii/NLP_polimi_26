@@ -62,7 +62,11 @@ def retrieve(index: dict[str, Any], query: str, top_k: int = 3) -> list[tuple[fl
         query_vec = index["vectorizer"].transform([query])
         scores = (index["matrix"] @ query_vec.T).toarray().ravel()
     elif kind == "bm25":
-        scores = np.asarray(index["bm25"].get_scores(tokenize(query)), dtype=np.float32)
+        # use bm25s get_scores
+        try:
+            scores = np.asarray(index["bm25"].get_scores(tokenize(query), show_progress=False), dtype=np.float32).ravel()
+        except TypeError:
+            scores = np.asarray(index["bm25"].get_scores(tokenize(query)), dtype=np.float32).ravel()
     else:
         raise ValueError(f"Unsupported retrieval index kind: {kind}")
 
@@ -105,6 +109,8 @@ def option_evidence_score(option_text: str, evidence_docs: list[tuple[float, dic
                 score += rank_weight / max(1.0, len(option_terms) ** 0.5)
     return score
 
+
+from agentic_tools import choose_with_agentic_tools
 
 @dataclass
 class RetrievalDecision:
@@ -234,7 +240,22 @@ def play_logged_game(client, competition_id: int, attempt: int, index: dict[str,
 
         start = time.perf_counter()
         try:
-            decision = choose_with_retrieval(question, index)
+            if competition_name.lower() == "maths":
+                # Try the agentic tools first
+                agentic_decision = choose_with_agentic_tools(question, fallback=lambda q: None)
+                if agentic_decision is not None:
+                    # Fabricate a compatibility object for the logs
+                    decision = RetrievalDecision(
+                        option_id=agentic_decision.option_id,
+                        option_text=next(opt.text for opt in question.options if opt.id == agentic_decision.option_id),
+                        confidence=agentic_decision.confidence,
+                        option_scores=[],
+                        evidence=[{"text": agentic_decision.explanation}]
+                    )
+                else:
+                    decision = choose_with_retrieval(question, index)
+            else:
+                decision = choose_with_retrieval(question, index)
             decision_latency = time.perf_counter() - start
 
             submit_start = time.perf_counter()
