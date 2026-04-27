@@ -23,8 +23,8 @@ L'ordine sotto e quello consigliato per lavorare: prima cose semplici, veloci e 
 | 4 | TF-IDF + cosine similarity | Bassa | Molto veloce | 35% | Prima soluzione IR seria | Se BM25 e disponibile |
 | 5 | BM25 su documenti locali | Bassa-media | Molto veloce | 40% | Primo retrieval consigliato | Quando abbiamo log e knowledge base minima |
 | 6 | BM25 che sceglie direttamente l'opzione | Media | Molto veloce | 38% | Prima soluzione "intelligente" senza LLM | Se serve ragionamento o conoscenza implicita |
-| 7 | Agentic router + tool matematici | Media | Molto veloce | 45-55% su Maths | Prima dei LLM, per domande calcolabili | Quando i tool non coprono piu casi |
-| 8 | Calculator/statistics/algebra tools | Media | Molto veloce | 45-60% su Maths | Aggiungerli in modo modulare | Dopo aver rilevato pattern numerici |
+| 7 | Agentic router + tool matematici SymPy | Media | Molto veloce | 45-55% su Maths | Prima dei LLM, per domande calcolabili | Quando i tool non coprono piu casi |
+| 8 | SymPy/statistics/algebra tools | Media | Molto veloce | 45-60% su Maths | Aggiungerli in modo modulare | Dopo aver rilevato pattern numerici |
 | 9 | LLM piccolo 1B-2B zero-shot | Media | Veloce | 35-42% | Primo test generativo su T4 | Se output e parsabile e sta nei tempi |
 | 10 | LLM piccolo 1B-2B few-shot | Media | Veloce | 38-45% | Stabilizzare formato e scelta opzione | Se il prompt lungo non rallenta troppo |
 | 11 | BM25 + LLM 1B-2B | Media | Veloce | 45-50% | Primo RAG completo e leggero | Se migliora rispetto a LLM puro |
@@ -83,7 +83,7 @@ Le famiglie sotto sono intese come classi di modelli, non come obbligo di usare 
 Configurazione primaria:
 
 - router: decide tra tool, retrieval e LLM;
-- tool: calcolatrice Python, pattern statistici, controlli sulle opzioni, algebra semplice;
+- tool: SymPy, pattern statistici, controlli sulle opzioni, algebra semplice;
 - retrieval: BM25 su CPU;
 - modello generativo: prima LLM 1B-2B, poi eventualmente LLM 3B-4B quantizzato;
 - prompt: massimo 3 snippet, nessuna spiegazione lunga;

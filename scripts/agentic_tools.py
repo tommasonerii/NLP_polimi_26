@@ -1,17 +1,18 @@
-"""Lightweight tool-based answer strategies for PoliMillionaire.
+"""SymPy-based tool strategies for PoliMillionaire.
 
-The functions in this module are intentionally simple and fast. They are not a
-complete math solver: they implement deterministic tools for question families
-that are cheap to recognize, then fall back to another strategy.
+This module implements a small agentic layer: each tool recognizes a cheap,
+specific question family, computes/checks the answer with SymPy, and returns an
+option id plus an explanation. It is deliberately conservative; unknown
+questions should fall back to retrieval or an LLM rather than forcing a guess.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from fractions import Fraction
-from math import gcd, lcm, isqrt
 import re
 from typing import Callable, Iterable, Optional
+
+import sympy as sp
 
 
 @dataclass
@@ -27,22 +28,28 @@ def _option_items(question) -> list[tuple[int, str]]:
 
 
 def _normalize(text: str) -> str:
-    return " ".join(text.lower().split())
+    return " ".join(str(text).lower().split())
 
 
-def _parse_number(text: str) -> Optional[Fraction]:
-    match = re.search(r"-?\d+(?:\.\d+)?", text.replace(",", ""))
+def _parse_number(text: str) -> Optional[sp.Rational | sp.Float | sp.Integer]:
+    """Parse the first numeric value in option text into a SymPy number."""
+    match = re.search(r"-?\d+(?:\.\d+)?", str(text).replace(",", ""))
     if not match:
         return None
-    return Fraction(match.group(0))
+    return sp.Rational(match.group(0))
 
 
-def _find_option_by_number(question, value: Fraction, tolerance: float = 1e-9) -> Optional[int]:
+def _numeric_equal(a, b, tolerance: float = 1e-9) -> bool:
+    return abs(float(sp.N(a - b))) <= tolerance
+
+
+def _find_option_by_number(question, value, tolerance: float = 1e-9) -> Optional[int]:
+    value = sp.N(value) if not getattr(value, "is_Rational", False) else value
     for option_id, option_text in _option_items(question):
         parsed = _parse_number(option_text)
         if parsed is None:
             continue
-        if abs(float(parsed - value)) <= tolerance:
+        if _numeric_equal(parsed, value, tolerance=tolerance):
             return option_id
     return None
 
@@ -54,6 +61,21 @@ def _find_option_containing(question, patterns: Iterable[str]) -> Optional[int]:
         if any(pattern in normalized for pattern in lowered_patterns):
             return option_id
     return None
+
+
+def _integer_options(question) -> list[tuple[int, int]]:
+    values = []
+    for option_id, option_text in _option_items(question):
+        parsed = _parse_number(option_text)
+        if parsed is not None and parsed.is_integer:
+            values.append((option_id, int(parsed)))
+    return values
+
+
+def _is_squarefree(n: int) -> bool:
+    if n <= 1:
+        return False
+    return all(exp == 1 for exp in sp.factorint(n).values())
 
 
 def tool_lcm_gcd_options(question) -> Optional[ToolDecision]:
@@ -68,18 +90,17 @@ def tool_lcm_gcd_options(question) -> Optional[ToolDecision]:
     if not target_match or not known_match:
         return None
 
-    target = int(target_match.group(1))
-    known = int(known_match.group(1))
+    target = sp.Integer(target_match.group(1))
+    known = sp.Integer(known_match.group(1))
 
-    valid = []
-    for option_id, option_text in _option_items(question):
-        candidate = _parse_number(option_text)
-        if candidate is None or candidate.denominator != 1 or candidate <= 0:
+    valid: list[tuple[int, int]] = []
+    for option_id, other_int in _integer_options(question):
+        if other_int <= 0:
             continue
-        other = int(candidate)
-        ratio = lcm(known, other) // gcd(known, other)
-        if ratio == target:
-            valid.append((other, option_id))
+        other = sp.Integer(other_int)
+        ratio = sp.ilcm(known, other) / sp.igcd(known, other)
+        if sp.simplify(ratio - target) == 0:
+            valid.append((other_int, option_id))
 
     if not valid:
         return None
@@ -89,7 +110,7 @@ def tool_lcm_gcd_options(question) -> Optional[ToolDecision]:
         option_id=option_id,
         strategy="tool_lcm_gcd_options",
         confidence=0.95,
-        explanation=f"Checked answer options: lcm({known}, x) / gcd({known}, x) = {target}; smallest valid x is {other}.",
+        explanation=f"Checked options with SymPy: lcm({known}, x) / gcd({known}, x) = {target}; smallest valid x is {other}.",
     )
 
 
@@ -106,9 +127,9 @@ def tool_correlation(question) -> Optional[ToolDecision]:
     if not r_match:
         r_match = re.search(r"correlation\s+(?:of|is|between)?\s*(-?\d+(?:\.\d+)?)", low)
     if r_match:
-        r = Fraction(r_match.group(1))
+        r = sp.Rational(r_match.group(1))
     else:
-        candidates = [Fraction(x) for x in re.findall(r"-?\d+\.\d+", low)]
+        candidates = [sp.Rational(x) for x in re.findall(r"-?\d+\.\d+", low)]
         correlations = [x for x in candidates if -1 <= x <= 1]
         if not correlations:
             return None
@@ -125,26 +146,18 @@ def tool_correlation(question) -> Optional[ToolDecision]:
             )
 
     if "variation" in all_text_low or "explained" in all_text_low:
-        percent = float(r * r * 100)
-        option_id = _find_option_containing(question, [f"{percent:g}%", f"{percent:.0f}%"])
+        percent = sp.simplify(r**2 * 100)
+        percent_float = float(sp.N(percent))
+        option_id = _find_option_containing(question, [f"{percent_float:g}%", f"{percent_float:.0f}%"])
         if option_id is not None:
             return ToolDecision(
                 option_id=option_id,
                 strategy="tool_correlation_r_squared",
                 confidence=0.9,
-                explanation=f"Explained variation is r^2 = {float(r):.3g}^2 = {percent:g}%.",
+                explanation=f"Explained variation is r^2 = {float(sp.N(r)):.3g}^2 = {percent_float:g}%.",
             )
 
     return None
-
-
-def _is_squarefree(n: int) -> bool:
-    if n <= 1:
-        return False
-    for d in range(2, isqrt(n) + 1):
-        if n % (d * d) == 0:
-            return False
-    return True
 
 
 def tool_simple_field_extension(question) -> Optional[ToolDecision]:
@@ -154,23 +167,29 @@ def tool_simple_field_extension(question) -> Optional[ToolDecision]:
     if "field extension" not in low or "sqrt" not in low:
         return None
 
-    radicands = [int(x) for x in re.findall(r"sqrt\((\d+)\)", low)]
-    unique = sorted(set(radicands))
-    if len(unique) < 2:
+    radicands = sorted({int(x) for x in re.findall(r"sqrt\((\d+)\)", low)})
+    if len(radicands) < 2:
         return None
 
-    if all(_is_squarefree(n) for n in unique[:2]):
-        degree = Fraction(4)
-        option_id = _find_option_by_number(question, degree)
-        if option_id is not None:
-            return ToolDecision(
-                option_id=option_id,
-                strategy="tool_simple_field_extension",
-                confidence=0.75,
-                explanation=f"For distinct squarefree radicands {unique[:2]}, Q(sqrt(a)+sqrt(b)) typically has degree 4.",
-            )
+    a, b = radicands[:2]
+    if not _is_squarefree(a) or not _is_squarefree(b):
+        return None
 
-    return None
+    # For distinct squarefree a,b, sqrt(a)+sqrt(b) generates a biquadratic
+    # extension in the typical quiz case.
+    degree = sp.Integer(4)
+    option_id = _find_option_by_number(question, degree)
+    if option_id is None:
+        return None
+
+    alpha = sp.sqrt(a) + sp.sqrt(b)
+    minpoly = sp.minpoly(alpha)
+    return ToolDecision(
+        option_id=option_id,
+        strategy="tool_simple_field_extension",
+        confidence=0.85,
+        explanation=f"SymPy minpoly({alpha}) = {minpoly}, degree {sp.degree(minpoly)}.",
+    )
 
 
 def tool_direct_product_quotient_order(question) -> Optional[ToolDecision]:
@@ -184,10 +203,10 @@ def tool_direct_product_quotient_order(question) -> Optional[ToolDecision]:
     if not match:
         return None
 
-    m, n = int(match.group(1)), int(match.group(2))
+    m, n = sp.Integer(match.group(1)), sp.Integer(match.group(2))
     group_order = m * n
-    subgroup_order = lcm(m, n)
-    quotient_order = Fraction(group_order, subgroup_order)
+    subgroup_order = sp.ilcm(m, n)
+    quotient_order = sp.simplify(group_order / subgroup_order)
     option_id = _find_option_by_number(question, quotient_order)
     if option_id is None:
         return None
@@ -200,13 +219,47 @@ def tool_direct_product_quotient_order(question) -> Optional[ToolDecision]:
     )
 
 
+def tool_basic_equation_options(question) -> Optional[ToolDecision]:
+    """Solve very explicit one-variable equations when the answer is numeric."""
+    low = _normalize(question.text)
+    if "=" not in low or not any(token in low for token in ["solve", "find x", "value of x"]):
+        return None
+
+    # Conservative parser: only use math characters around a single equation.
+    eq_match = re.search(r"([0-9xX+\-*/().\s]+)=([0-9xX+\-*/().\s]+)", str(question.text))
+    if not eq_match:
+        return None
+
+    x = sp.symbols("x")
+    try:
+        left = sp.sympify(eq_match.group(1).replace("X", "x"))
+        right = sp.sympify(eq_match.group(2).replace("X", "x"))
+        solutions = sp.solve(sp.Eq(left, right), x)
+    except (sp.SympifyError, TypeError, ValueError):
+        return None
+
+    if len(solutions) != 1:
+        return None
+
+    option_id = _find_option_by_number(question, sp.N(solutions[0]))
+    if option_id is None:
+        return None
+
+    return ToolDecision(
+        option_id=option_id,
+        strategy="tool_basic_equation_options",
+        confidence=0.85,
+        explanation=f"SymPy solved {left} = {right}; x = {solutions[0]}.",
+    )
+
+
 def first_option_fallback(question) -> ToolDecision:
     option_id = question.options[0].id
     return ToolDecision(
         option_id=option_id,
         strategy="fallback_first_option",
         confidence=0.2,
-        explanation="No deterministic tool matched; using first-option fallback.",
+        explanation="No deterministic SymPy tool matched; using first-option fallback.",
     )
 
 
@@ -215,6 +268,7 @@ DEFAULT_TOOLS: tuple[Callable, ...] = (
     tool_correlation,
     tool_simple_field_extension,
     tool_direct_product_quotient_order,
+    tool_basic_equation_options,
 )
 
 
