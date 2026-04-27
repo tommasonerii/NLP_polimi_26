@@ -1,0 +1,71 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Conda environments
+env/
+ENV/
+.conda/
+conda-env/
+*.conda
+
+# Virtual environments
+venv/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+.jupyter/
+
+# VS Code
+.vscode/
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+*.env
+
+# Cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Data folders (optional)
+data/
+datasets/
+
+# Models (optional)
+models/
+checkpoints/
+
+# Notebook exports
+*.html
+*.pdf
+
+# Databases
+*.sqlite3
+*.db
+
+# Conda metadata
+conda-meta/
+
+# Mac/Linux hidden files
+.AppleDouble
+.LSOverride
