@@ -10,9 +10,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 import sympy as sp
+from sympy.parsing.sympy_parser import (
+    convert_xor,
+    implicit_multiplication_application,
+    parse_expr,
+    standard_transformations,
+)
 
 
 @dataclass
@@ -23,6 +29,27 @@ class ToolDecision:
     explanation: str
 
 
+@dataclass
+class StructuredToolResult:
+    tool_name: str
+    value: Any
+    explanation: str
+
+
+ALLOWED_STRUCTURED_TOOLS = {
+    "solve_equation",
+    "evaluate_expression",
+    "modular_day",
+    "prime_digit_sum",
+    "percentage_greater",
+    "no_tool",
+}
+
+SAFE_MATH_RE = re.compile(r"^[0-9xX+\-*/().,^=\s]+$")
+TRANSFORMATIONS = standard_transformations + (implicit_multiplication_application, convert_xor)
+WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
 def _option_items(question) -> list[tuple[int, str]]:
     return [(opt.id, str(opt.text)) for opt in question.options]
 
@@ -31,9 +58,27 @@ def _normalize(text: str) -> str:
     return " ".join(str(text).lower().split())
 
 
+def _normalize_math_text(text: str) -> str:
+    return (
+        str(text)
+        .replace("−", "-")
+        .replace("–", "-")
+        .replace("—", "-")
+        .replace("×", "*")
+        .replace("·", "*")
+        .replace("÷", "/")
+        .replace("^", "**")
+        .replace("$", "")
+    )
+
+
 def _parse_number(text: str) -> Optional[sp.Rational | sp.Float | sp.Integer]:
     """Parse the first numeric value in option text into a SymPy number."""
-    match = re.search(r"-?\d+(?:\.\d+)?", str(text).replace(",", ""))
+    cleaned = _normalize_math_text(text).replace(",", "")
+    fraction = re.search(r"[-+]?\d+\s*/\s*[-+]?\d+", cleaned)
+    if fraction:
+        return sp.Rational(fraction.group(0).replace(" ", ""))
+    match = re.search(r"[-+]?\d+(?:\.\d+)?", cleaned)
     if not match:
         return None
     return sp.Rational(match.group(0))
@@ -51,6 +96,22 @@ def _find_option_by_number(question, value, tolerance: float = 1e-9) -> Optional
             continue
         if _numeric_equal(parsed, value, tolerance=tolerance):
             return option_id
+    return None
+
+
+def _find_option_by_value(question, value, tolerance: float = 1e-8) -> Optional[int]:
+    """Map a numeric tool result to an option, handling fractions and percents."""
+    for option_id, option_text in _option_items(question):
+        parsed = _parse_number(option_text)
+        if parsed is None:
+            continue
+
+        candidates = [parsed]
+        if "%" in str(option_text):
+            candidates.append(parsed / 100)
+        if any(_numeric_equal(candidate, value, tolerance=tolerance) for candidate in candidates):
+            return option_id
+
     return None
 
 
@@ -78,6 +139,145 @@ def _is_squarefree(n: int) -> bool:
     return all(exp == 1 for exp in sp.factorint(n).values())
 
 
+def _safe_parse_expr(expression: str):
+    cleaned = _normalize_math_text(expression).replace("X", "x")
+    cleaned = cleaned.replace("=", "")
+    if not SAFE_MATH_RE.match(cleaned):
+        raise ValueError(f"Unsafe expression: {expression!r}")
+    return parse_expr(cleaned, transformations=TRANSFORMATIONS, evaluate=True)
+
+
+def _safe_parse_equation(equation: str, variable: str = "x"):
+    cleaned = _normalize_math_text(equation).replace("X", "x")
+    if "=" not in cleaned:
+        raise ValueError("Equation must contain '='.")
+    if not SAFE_MATH_RE.match(cleaned):
+        raise ValueError(f"Unsafe equation: {equation!r}")
+    left_text, right_text = cleaned.split("=", 1)
+    symbol = sp.symbols((variable or "x").lower())
+    local_dict = {str(symbol): symbol}
+    left = parse_expr(left_text, local_dict=local_dict, transformations=TRANSFORMATIONS, evaluate=True)
+    right = parse_expr(right_text, local_dict=local_dict, transformations=TRANSFORMATIONS, evaluate=True)
+    return sp.Eq(left, right), symbol
+
+
+def validate_structured_tool_call(call: Any) -> Optional[dict[str, Any]]:
+    """Validate a JSON-like tool call produced by an LLM router."""
+    if not isinstance(call, dict):
+        return None
+    tool = call.get("tool")
+    args = call.get("args", {})
+    if tool not in ALLOWED_STRUCTURED_TOOLS:
+        return None
+    if not isinstance(args, dict):
+        return None
+    return {"tool": tool, "args": args}
+
+
+def execute_structured_tool_call(call: dict[str, Any]) -> Optional[StructuredToolResult]:
+    """Execute a validated tool call. The question text is not parsed here."""
+    validated = validate_structured_tool_call(call)
+    if validated is None:
+        return None
+
+    tool = validated["tool"]
+    args = validated["args"]
+    if tool == "no_tool":
+        return None
+
+    try:
+        if tool == "solve_equation":
+            equation_text = str(args.get("equation", ""))
+            variable = str(args.get("variable", "x"))
+            equation, symbol = _safe_parse_equation(equation_text, variable=variable)
+            solutions = sp.solve(equation, symbol)
+            if len(solutions) != 1:
+                return None
+            value = sp.simplify(solutions[0])
+            return StructuredToolResult(
+                tool_name=tool,
+                value=value,
+                explanation=f"Solved {equation_text}; {symbol} = {value}.",
+            )
+
+        if tool == "evaluate_expression":
+            expression_text = str(args.get("expression", ""))
+            value = sp.simplify(_safe_parse_expr(expression_text))
+            return StructuredToolResult(
+                tool_name=tool,
+                value=value,
+                explanation=f"Evaluated {expression_text} = {value}.",
+            )
+
+        if tool == "modular_day":
+            start_day = _normalize(args.get("start_day", ""))
+            days_expression = str(args.get("days_expression", ""))
+            if start_day not in WEEKDAYS:
+                return None
+            days = sp.Integer(sp.simplify(_safe_parse_expr(days_expression)))
+            target = WEEKDAYS[(WEEKDAYS.index(start_day) + int(days % 7)) % 7]
+            return StructuredToolResult(
+                tool_name=tool,
+                value=target,
+                explanation=f"{days_expression} mod 7 = {int(days % 7)}; {start_day} -> {target}.",
+            )
+
+        if tool == "prime_digit_sum":
+            digits = int(args.get("digits", 3))
+            count = int(args.get("count", 2))
+            lower = 10 ** (digits - 1)
+            upper = 10**digits
+            primes = list(sp.primerange(lower, upper))[:count]
+            if len(primes) != count:
+                return None
+            product = sp.prod(primes)
+            digit_sum = sum(int(ch) for ch in str(abs(int(product))))
+            return StructuredToolResult(
+                tool_name=tool,
+                value=sp.Integer(digit_sum),
+                explanation=f"First {count} {digits}-digit primes are {primes}; product={product}; digit sum={digit_sum}.",
+            )
+
+        if tool == "percentage_greater":
+            first = sp.Rational(str(args.get("first_count")))
+            second = sp.Rational(str(args.get("second_count")))
+            if second == 0:
+                return None
+            percent = sp.simplify((first - second) / second * 100)
+            return StructuredToolResult(
+                tool_name=tool,
+                value=percent,
+                explanation=f"Percentage increase from {second} to {first}: ({first}-{second})/{second}*100 = {percent}%.",
+            )
+    except (TypeError, ValueError, sp.SympifyError, ZeroDivisionError, OverflowError):
+        return None
+
+    return None
+
+
+def choose_with_structured_tool_call(question, call: dict[str, Any]) -> Optional[ToolDecision]:
+    """Execute a structured tool call and choose the matching answer option."""
+    result = execute_structured_tool_call(call)
+    if result is None:
+        return None
+
+    option_id: Optional[int]
+    if isinstance(result.value, str):
+        option_id = _find_option_containing(question, [result.value])
+    else:
+        option_id = _find_option_by_value(question, result.value)
+
+    if option_id is None:
+        return None
+
+    return ToolDecision(
+        option_id=option_id,
+        strategy=f"tool_router_{result.tool_name}",
+        confidence=0.95,
+        explanation=result.explanation,
+    )
+
+
 def tool_lcm_gcd_options(question) -> Optional[ToolDecision]:
     """Solve option-checkable questions involving lcm(a, b) / gcd(a, b)."""
     text = str(question.text)
@@ -86,7 +286,13 @@ def tool_lcm_gcd_options(question) -> Optional[ToolDecision]:
         return None
 
     target_match = re.search(r"result\s+is\s+(\d+)", low)
-    known_match = re.search(r"one integer is\s+(\d+)", low)
+    if not target_match:
+        target_match = re.search(
+            r"(?:least common multiple|lcm).{0,140}?"
+            r"(?:greatest common divisor|gcd).{0,100}?is\s+(\d+)",
+            low,
+        )
+    known_match = re.search(r"one\s+(?:of\s+the\s+)?integers?\s+is\s+(\d+)", low)
     if not target_match or not known_match:
         return None
 
