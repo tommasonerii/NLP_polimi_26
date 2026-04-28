@@ -33,8 +33,8 @@ def load_corpus(path: Path, limit: int | None = None) -> tuple[list[str], list[d
             docs.append(
                 {
                     "id": row.get("id"),
-                    "doc_id": row.get("doc_id"),
-                    "chunk_id": row.get("chunk_id"),
+                    "doc_id": row.get("doc_id") or row.get("id"),
+                    "chunk_id": row.get("chunk_id") if row.get("chunk_id") is not None else 0,
                     "title": row.get("title", ""),
                     "url": row.get("url", ""),
                     "source": row.get("source", ""),

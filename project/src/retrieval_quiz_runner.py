@@ -63,7 +63,10 @@ def retrieve(index: dict[str, Any] | list[dict[str, Any]], query: str, top_k: in
         for idx in index:
             results = retrieve(idx, query, top_k=top_k * 2) # Get slightly more for better fusion
             for rank, (score, doc) in enumerate(results):
-                doc_id_key = str(doc.get("doc_id", doc.get("id"))) + str(doc.get("chunk_id", ""))
+                source = str(doc.get("source") or idx.get("corpus_path") or "")
+                doc_id = doc.get("doc_id") or doc.get("id")
+                chunk_id = doc.get("chunk_id")
+                doc_id_key = (source, str(doc_id), str(chunk_id or ""))
                 if doc_id_key not in all_results:
                     all_results[doc_id_key] = {"doc": doc, "rrf_score": 0.0}
                 all_results[doc_id_key]["rrf_score"] += 1.0 / (rrf_k + rank + 1)
