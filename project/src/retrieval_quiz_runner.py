@@ -54,19 +54,46 @@ def load_retrieval_index(index_path: str | Path) -> dict[str, Any]:
     return joblib.load(index_path)
 
 
-def retrieve(index: dict[str, Any], query: str, top_k: int = 3) -> list[tuple[float, dict[str, Any]]]:
-    kind = index["kind"]
+def retrieve(index: dict[str, Any] | list[dict[str, Any]], query: str, top_k: int = 3) -> list[tuple[float, dict[str, Any]]]:
+    if isinstance(index, list):
+        # Handle multiple indexes using Reciprocal Rank Fusion (RRF)
+        # to combine uncalibrated BM25 scores from different corpora
+        rrf_k = 60
+        all_results = {}
+        for idx in index:
+            results = retrieve(idx, query, top_k=top_k * 2) # Get slightly more for better fusion
+            for rank, (score, doc) in enumerate(results):
+                doc_id_key = str(doc.get("doc_id", doc.get("id"))) + str(doc.get("chunk_id", ""))
+                if doc_id_key not in all_results:
+                    all_results[doc_id_key] = {"doc": doc, "rrf_score": 0.0}
+                all_results[doc_id_key]["rrf_score"] += 1.0 / (rrf_k + rank + 1)
+        
+        # Sort by RRF score
+        fused = sorted(all_results.values(), key=lambda x: x["rrf_score"], reverse=True)
+        return [(item["rrf_score"], item["doc"]) for item in fused[:top_k]]
+
+    kind = index.get("kind")
+    if not kind:
+        raise ValueError("Provided index does not have a 'kind' key.")
+        
     docs = index["docs"]
 
     if kind == "tfidf":
-        query_vec = index["vectorizer"].transform([query])
+        # Rimuoviamo le stopwords prima di vettorizzare per accelerare la moltiplicazione sparsa
+        clean_query = " ".join([t for t in tokenize(query) if t not in STOPWORDS]) or query
+        query_vec = index["vectorizer"].transform([clean_query])
         scores = (index["matrix"] @ query_vec.T).toarray().ravel()
     elif kind == "bm25":
         # use bm25s get_scores
+        # Rimuoviamo le stopwords: evita a BM25 di caricare le liste posizionali gigantesche di "the", "and", ecc.
+        q_tokens = [t for t in tokenize(query) if t not in STOPWORDS]
+        if not q_tokens:
+            q_tokens = tokenize(query) # Fallback
+
         try:
-            scores = np.asarray(index["bm25"].get_scores(tokenize(query), show_progress=False), dtype=np.float32).ravel()
+            scores = np.asarray(index["bm25"].get_scores(q_tokens, show_progress=False), dtype=np.float32).ravel()
         except TypeError:
-            scores = np.asarray(index["bm25"].get_scores(tokenize(query)), dtype=np.float32).ravel()
+            scores = np.asarray(index["bm25"].get_scores(q_tokens), dtype=np.float32).ravel()
     else:
         raise ValueError(f"Unsupported retrieval index kind: {kind}")
 
@@ -206,7 +233,7 @@ LOG_FIELDS = [
 ]
 
 
-def play_logged_game(client, competition_id: int, attempt: int, index: dict[str, Any], strategy_name: str) -> list[dict[str, Any]]:
+def play_logged_game(client, competition_id: int, attempt: int, index: Any, strategy_name: str, choose_fn=None) -> list[dict[str, Any]]:
     game = client.game.start(competition_id=competition_id)
     competition_name = game.state.competition.name
     rows: list[dict[str, Any]] = []
@@ -253,9 +280,9 @@ def play_logged_game(client, competition_id: int, attempt: int, index: dict[str,
                         evidence=[{"text": agentic_decision.explanation}]
                     )
                 else:
-                    decision = choose_with_retrieval(question, index)
+                    decision = choose_fn(question, index) if choose_fn else choose_with_retrieval(question, index)
             else:
-                decision = choose_with_retrieval(question, index)
+                decision = choose_fn(question, index) if choose_fn else choose_with_retrieval(question, index)
             decision_latency = time.perf_counter() - start
 
             submit_start = time.perf_counter()
@@ -318,9 +345,11 @@ def play_logged_game(client, competition_id: int, attempt: int, index: dict[str,
 def write_logs(rows: list[dict[str, Any]], output_path: str | Path) -> None:
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", encoding="utf-8", newline="") as out:
+    file_exists = output.exists() and output.stat().st_size > 0
+    with output.open("a", encoding="utf-8", newline="") as out:
         writer = csv.DictWriter(out, fieldnames=LOG_FIELDS)
-        writer.writeheader()
+        if not file_exists:
+            writer.writeheader()
         writer.writerows(rows)
 
 
@@ -345,7 +374,7 @@ def print_attempt_row(row: dict[str, Any]) -> None:
     print()
 
 
-def run_all_competitions(client, index: dict[str, Any], strategy_name: str, attempts_per_competition: int = 5) -> list[dict[str, Any]]:
+def run_all_competitions(client, index: Any, strategy_name: str, attempts_per_competition: int = 5, choose_fn=None) -> list[dict[str, Any]]:
     competitions = client.competitions.list_all()
     rows: list[dict[str, Any]] = []
     for comp in competitions:
@@ -357,6 +386,7 @@ def run_all_competitions(client, index: dict[str, Any], strategy_name: str, atte
                     attempt=attempt,
                     index=index,
                     strategy_name=strategy_name,
+                    choose_fn=choose_fn,
                 )
             )
     return rows
