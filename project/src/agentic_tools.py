@@ -139,12 +139,12 @@ def _is_squarefree(n: int) -> bool:
     return all(exp == 1 for exp in sp.factorint(n).values())
 
 
-def _safe_parse_expr(expression: str):
+def _safe_parse_expr(expression: str, evaluate: bool = True):
     cleaned = _normalize_math_text(expression).replace("X", "x")
     cleaned = cleaned.replace("=", "")
     if not SAFE_MATH_RE.match(cleaned):
         raise ValueError(f"Unsafe expression: {expression!r}")
-    return parse_expr(cleaned, transformations=TRANSFORMATIONS, evaluate=True)
+    return parse_expr(cleaned, transformations=TRANSFORMATIONS, evaluate=evaluate)
 
 
 def _safe_parse_equation(equation: str, variable: str = "x"):
@@ -214,12 +214,13 @@ def execute_structured_tool_call(call: dict[str, Any]) -> Optional[StructuredToo
             days_expression = str(args.get("days_expression", ""))
             if start_day not in WEEKDAYS:
                 return None
-            days = sp.Integer(sp.simplify(_safe_parse_expr(days_expression)))
-            target = WEEKDAYS[(WEEKDAYS.index(start_day) + int(days % 7)) % 7]
+            days_expr = _safe_parse_expr(days_expression, evaluate=False)
+            days_mod = int(sp.Mod(days_expr, 7))
+            target = WEEKDAYS[(WEEKDAYS.index(start_day) + days_mod) % 7]
             return StructuredToolResult(
                 tool_name=tool,
                 value=target,
-                explanation=f"{days_expression} mod 7 = {int(days % 7)}; {start_day} -> {target}.",
+                explanation=f"{days_expression} mod 7 = {days_mod}; {start_day} -> {target}.",
             )
 
         if tool == "prime_digit_sum":

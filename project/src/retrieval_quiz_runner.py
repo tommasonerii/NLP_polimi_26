@@ -149,6 +149,12 @@ class RetrievalDecision:
     confidence: float
     option_scores: list[dict[str, Any]]
     evidence: list[dict[str, Any]]
+    decision_source: str = ""
+    tool_name: str = ""
+    raw_tool_call: str = ""
+    tool_result: str = ""
+    llm_raw_answer: str = ""
+    bert_top_option: str = ""
 
 
 def choose_with_retrieval(question, index: dict[str, Any], option_top_k: int = 5, evidence_top_k: int = 5) -> RetrievalDecision:
@@ -200,6 +206,7 @@ def choose_with_retrieval(question, index: dict[str, Any], option_top_k: int = 5
             }
             for score, doc in global_results
         ],
+        decision_source="retrieval",
     )
 
 
@@ -220,6 +227,12 @@ LOG_FIELDS = [
     "confidence",
     "option_scores_json",
     "evidence_json",
+    "decision_source",
+    "tool_name",
+    "raw_tool_call",
+    "tool_result",
+    "llm_raw_answer",
+    "bert_top_option",
     "time_remaining_before",
     "decision_latency_seconds",
     "submit_latency_seconds",
@@ -246,6 +259,11 @@ def play_logged_game(client, competition_id: int, attempt: int, index: Any, stra
         question = game.current_question
         if question is None:
             break
+        try:
+            setattr(question, "competition_id", competition_id)
+            setattr(question, "competition_name", competition_name)
+        except Exception:
+            pass
 
         question_number += 1
         time_remaining_before = game.time_remaining
@@ -270,7 +288,9 @@ def play_logged_game(client, competition_id: int, attempt: int, index: Any, stra
 
         start = time.perf_counter()
         try:
-            if competition_name.lower() == "maths":
+            if choose_fn is not None:
+                decision = choose_fn(question, index)
+            elif competition_name.lower() == "maths":
                 # Try the agentic tools first
                 agentic_decision = choose_with_agentic_tools(question, fallback=lambda q: None)
                 if agentic_decision is not None:
@@ -280,12 +300,15 @@ def play_logged_game(client, competition_id: int, attempt: int, index: Any, stra
                         option_text=next(opt.text for opt in question.options if opt.id == agentic_decision.option_id),
                         confidence=agentic_decision.confidence,
                         option_scores=[],
-                        evidence=[{"text": agentic_decision.explanation}]
+                        evidence=[{"text": agentic_decision.explanation}],
+                        decision_source="tool_regex",
+                        tool_name=agentic_decision.strategy,
+                        tool_result=agentic_decision.explanation,
                     )
                 else:
-                    decision = choose_fn(question, index) if choose_fn else choose_with_retrieval(question, index)
+                    decision = choose_with_retrieval(question, index)
             else:
-                decision = choose_fn(question, index) if choose_fn else choose_with_retrieval(question, index)
+                decision = choose_with_retrieval(question, index)
             decision_latency = time.perf_counter() - start
 
             submit_start = time.perf_counter()
@@ -299,6 +322,12 @@ def play_logged_game(client, competition_id: int, attempt: int, index: Any, stra
                     "confidence": decision.confidence,
                     "option_scores_json": json.dumps(decision.option_scores, ensure_ascii=False),
                     "evidence_json": json.dumps(decision.evidence, ensure_ascii=False),
+                    "decision_source": getattr(decision, "decision_source", ""),
+                    "tool_name": getattr(decision, "tool_name", ""),
+                    "raw_tool_call": getattr(decision, "raw_tool_call", ""),
+                    "tool_result": getattr(decision, "tool_result", ""),
+                    "llm_raw_answer": getattr(decision, "llm_raw_answer", ""),
+                    "bert_top_option": getattr(decision, "bert_top_option", ""),
                     "decision_latency_seconds": decision_latency,
                     "submit_latency_seconds": submit_latency,
                     "total_latency_seconds": decision_latency + submit_latency,
@@ -325,6 +354,12 @@ def play_logged_game(client, competition_id: int, attempt: int, index: Any, stra
                     "confidence": "",
                     "option_scores_json": "",
                     "evidence_json": "",
+                    "decision_source": "",
+                    "tool_name": "",
+                    "raw_tool_call": "",
+                    "tool_result": "",
+                    "llm_raw_answer": "",
+                    "bert_top_option": "",
                     "decision_latency_seconds": time.perf_counter() - start,
                     "submit_latency_seconds": "",
                     "total_latency_seconds": time.perf_counter() - start,
@@ -357,14 +392,23 @@ def write_logs(rows: list[dict[str, Any]], output_path: str | Path) -> None:
 
 
 def print_attempt_row(row: dict[str, Any]) -> None:
+    decision_source = row.get("decision_source") or ""
+    tool_name = row.get("tool_name") or ""
+    source_text = f" source={decision_source}" if decision_source else ""
+    tool_text = f" tool={tool_name}" if tool_name else ""
     print(
         f"[{row['strategy']}] comp={row['competition_id']} {row['competition_name']} "
         f"attempt={row['attempt']} q={row['question_number']} level={row['level']} "
         f"chosen={row.get('chosen_option_id')} correct={row.get('correct')} "
         f"earned={row.get('earned_after')} latency={row.get('total_latency_seconds')}"
+        f"{source_text}{tool_text}"
     )
     print(f"Q: {row['question_text']}")
     print(f"A: {row.get('chosen_option_text')}")
+    if row.get("raw_tool_call"):
+        print(f"Tool call: {row.get('raw_tool_call')}")
+    if row.get("tool_result"):
+        print(f"Tool result: {row.get('tool_result')}")
     evidence = row.get("evidence_json")
     if evidence:
         try:
