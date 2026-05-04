@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 from datetime import datetime
+import inspect
 import json
 from pathlib import Path
 import re
@@ -289,7 +290,13 @@ def play_logged_game(client, competition_id: int, attempt: int, index: Any, stra
         start = time.perf_counter()
         try:
             if choose_fn is not None:
-                decision = choose_fn(question, index)
+                decision = call_choose_fn(
+                    choose_fn,
+                    question,
+                    index,
+                    competition_id=competition_id,
+                    competition_name=competition_name,
+                )
             elif competition_name.lower() == "maths":
                 # Try the agentic tools first
                 agentic_decision = choose_with_agentic_tools(question, fallback=lambda q: None)
@@ -389,6 +396,40 @@ def write_logs(rows: list[dict[str, Any]], output_path: str | Path) -> None:
         if not file_exists:
             writer.writeheader()
         writer.writerows(rows)
+
+
+def call_choose_fn(choose_fn, question, index: Any, *, competition_id: int, competition_name: str) -> RetrievalDecision:
+    """Call custom strategies with competition context when they support it.
+
+    Older notebooks pass choose functions that accept only ``(question, index)``.
+    Newer agentic strategies can accept explicit context, which is more reliable
+    than mutating API question objects that may be frozen.
+    """
+    try:
+        signature = inspect.signature(choose_fn)
+    except (TypeError, ValueError):
+        return choose_fn(question, index)
+
+    parameters = signature.parameters
+    accepts_kwargs = any(param.kind == inspect.Parameter.VAR_KEYWORD for param in parameters.values())
+    if accepts_kwargs or "competition_name" in parameters or "competition_id" in parameters:
+        return choose_fn(
+            question,
+            index,
+            competition_id=competition_id,
+            competition_name=competition_name,
+        )
+
+    positional = [
+        param
+        for param in parameters.values()
+        if param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+    ]
+    if len(positional) >= 4:
+        return choose_fn(question, index, competition_id, competition_name)
+    if len(positional) >= 3:
+        return choose_fn(question, index, competition_name)
+    return choose_fn(question, index)
 
 
 def print_attempt_row(row: dict[str, Any]) -> None:
