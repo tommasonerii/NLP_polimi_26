@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 import re
 import time
+import unicodedata
 from typing import Any
 
 import joblib
@@ -47,8 +48,29 @@ STOPWORDS = {
 }
 
 
+def normalize_text(text: str) -> str:
+    text = unicodedata.normalize("NFKD", text or "")
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return (
+        text.replace("\u2018", "'")
+        .replace("\u2019", "'")
+        .replace("\u2010", "-")
+        .replace("\u2013", "-")
+        .replace("\u2014", "-")
+    )
+
+
 def tokenize(text: str) -> list[str]:
-    return [match.group(0).lower() for match in TOKEN_RE.finditer(text or "")]
+    return [match.group(0).lower() for match in TOKEN_RE.finditer(normalize_text(text))]
+
+
+def add_token_ngrams(tokens: list[str], ngram_max: int) -> list[str]:
+    if ngram_max <= 1:
+        return tokens
+    expanded = list(tokens)
+    for n in range(2, ngram_max + 1):
+        expanded.extend("_".join(tokens[i : i + n]) for i in range(0, max(0, len(tokens) - n + 1)))
+    return expanded
 
 
 def load_retrieval_index(index_path: str | Path) -> dict[str, Any]:
@@ -90,9 +112,12 @@ def retrieve(index: dict[str, Any] | list[dict[str, Any]], query: str, top_k: in
     elif kind == "bm25":
         # use bm25s get_scores
         # Rimuoviamo le stopwords: evita a BM25 di caricare le liste posizionali gigantesche di "the", "and", ecc.
-        q_tokens = [t for t in tokenize(query) if t not in STOPWORDS]
+        q_tokens = tokenize(query)
+        if index.get("bm25_remove_stopwords", True):
+            q_tokens = [t for t in q_tokens if t not in STOPWORDS]
         if not q_tokens:
             q_tokens = tokenize(query) # Fallback
+        q_tokens = add_token_ngrams(q_tokens, int(index.get("bm25_ngram_max", 1)))
 
         try:
             scores = np.asarray(index["bm25"].get_scores(q_tokens, show_progress=False), dtype=np.float32).ravel()

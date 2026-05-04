@@ -10,7 +10,7 @@ from pathlib import Path
 import joblib
 import numpy as np
 
-from build_retrieval_index import tokenize
+from build_retrieval_index import STOPWORDS, add_token_ngrams, tokenize
 
 
 def retrieve(index, query: str, top_k: int):
@@ -20,7 +20,11 @@ def retrieve(index, query: str, top_k: int):
         query_vec = index["vectorizer"].transform([query])
         scores = (index["matrix"] @ query_vec.T).toarray().ravel()
     elif kind == "bm25":
-        scores = np.asarray(index["bm25"].get_scores(tokenize(query)), dtype="float32")
+        q_tokens = tokenize(query)
+        if index.get("bm25_remove_stopwords", False):
+            q_tokens = [token for token in q_tokens if token not in STOPWORDS]
+        q_tokens = add_token_ngrams(q_tokens, int(index.get("bm25_ngram_max", 1)))
+        scores = np.asarray(index["bm25"].get_scores(q_tokens), dtype="float32")
     else:
         raise ValueError(f"Unsupported index kind: {kind}")
 
