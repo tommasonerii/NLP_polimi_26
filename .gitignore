@@ -48,7 +48,10 @@ Thumbs.db
 *.temp
 
 # Data folders (optional)
-data/
+data/raw
+data/wiki
+data/chunks
+data/kelm
 datasets/
 
 # Models (optional)
