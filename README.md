@@ -1,88 +1,222 @@
-# 🏅 QA & Retrieval Application (NLP Polimi '26)
+# PoliMillionaire NLP 2026
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-orange.svg)](https://jupyter.org)
-[![Git LFS](https://img.shields.io/badge/Git-LFS-green.svg)](https://git-lfs.com/)
+Progetto per il corso di Natural Language Processing 2025/26 del Politecnico di Milano.
 
-This repository contains the final work for the **Natural Language Processing (2025/26)** course assignment at Politecnico di Milano.
+L'obiettivo e costruire e valutare un chatbot capace di giocare a **Who wants to be a PoliMillionaire?**, usando la API testuale del gioco e rispondendo a domande multiple-choice entro il timeout previsto. La soluzione sviluppata in questo repository combina retrieval locale, ranking lessicale, indici su basi di conoscenza esterne e strumenti deterministici per domande matematiche.
 
-The main goal of the project is to develop an **autonomous chatbot/agent** capable of competing in the online quiz game "**Who wants to be a PoliMillionaire?**" by interacting via text APIs. To answer multiple-choice questions as accurately as possible, the system adopts advanced *Information Retrieval* (IR) techniques interfaced with a *Retrieval-Augmented Generation* (RAG) module, leveraging knowledge bases derived from the **SimpleWiki** and **KELM** datasets.
+## Vincoli dell'assignment
 
----
+La consegna richiede un notebook Colab autoesplicativo e una breve presentazione video del lavoro. I vincoli tecnici principali sono:
 
-## 🎯 Project Overview and Requirements
+- i modelli devono essere eseguiti localmente, non tramite API LLM;
+- sono ammessi solo modelli open-weights;
+- una pipeline RAG e incoraggiata, usando indici locali oppure API che restituiscano contenuto grezzo non generato;
+- eventuali API esterne non devono essere API a pagamento ne generare direttamente risposte con LLM;
+- l'uso di tool agentici, per esempio calcolatrice o SymPy, e esplicitamente incoraggiato;
+- il sistema deve rispettare il timeout di circa 30 secondi per domanda;
+- bisogna evitare richieste consecutive troppo rapide al server del gioco;
+- la valutazione deve confrontare piu soluzioni, prompt, modelli, architetture e categorie di errore.
 
-The project focuses on intelligent information retrieval and quiz resolution in strict compliance with the exam rules. What we do in detail:
+La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/GroupAssignment2026.docx). La scadenza indicata nel documento e **2 giugno 2026 alle 23:00** via WeBeep.
 
-1. **Strictly Open-Weights/Local Models**: As required (no calls to paid LLM APIs like OpenAI), the architecture downloads and runs open-source LLM inference directly in-memory (e.g., on local *Google Colab*).
-2. **Custom RAG and Indexes Construction**: Offline development and benchmarking of *Sparse* (TF-IDF, BM25) and *Dense* (bi-encoder models + ANN vector embeddings) text indexes, which can be loaded in real-time by the retriever to compose response prompts.
-3. **Agentic Math Component (SymPy-backed)**: Since LLMs are notoriously prone to geometric and algebraic hallucinations, we implemented a dedicated mathematical safety agent (`project/src/agentic_tools.py`) powered by `SymPy`. It intercepts rigid mathematical requests, parses formulas correctly, solves them analytically, and bypasses the LLM returning the 100% exact option when a match exists.
-4. **PoliMillionaire Text API Client**: The `src/` module (and `api_client/` folder) contains the automation that queries the game host (handling the required rate limiting), parses the options, and submits them to the solver logics (Agent / LLM).
-5. **End-to-End Experiments**: Comparisons on precision, architectures, and evaluation runs (RAG pipeline) measured against the game leaderboard positions. All logs are available in the `logs/` folder.
+## Architettura del progetto
 
----
+La pipeline e pensata per funzionare su Google Colab o in locale:
 
-## 📁 Repository Structure
+1. la API PoliMillionaire fornisce domanda e opzioni;
+2. un router decide se usare tool deterministici, retrieval o una strategia custom;
+3. gli indici locali recuperano evidenza da SimpleWiki, KELM o libri di matematica;
+4. le opzioni vengono confrontate tramite scoring lessicale, BM25/TF-IDF e, nei notebook piu avanzati, componenti neurali;
+5. la risposta viene inviata alla API;
+6. ogni decisione viene salvata nei log CSV per analisi successiva.
+
+Per le competizioni di matematica, `project/src/agentic_tools.py` usa regole e SymPy per intercettare casi calcolabili e scegliere direttamente l'opzione corretta quando possibile. Per le domande di conoscenza generale, `project/src/retrieval_quiz_runner.py` usa retrieval locale e scoring delle opzioni.
+
+## Struttura
 
 ```text
-📦 NLP_polimi_26
-├── 📂 data/             # Raw data, pre-processed corpora, and saved indexes
-│   ├── 📂 chunks/       # Fragmented documents for indexing
-│   ├── 📂 indexes/      # Serialized indexes (Sparse and Dense) - tracked with Git LFS!
-│   └── 📂 wiki/ & kelm/ # Raw JSONL dumps
-├── 📂 docs/             # Additional documentation and theory extraction files
-├── 📂 logs/             # CSV of quiz results and telemetry for various experiments
-├── 📂 project/          # Project core
-│   ├── 📂 notebooks/    # Exploratory notebooks for progressive testing (00 -> 07)
-│   └── 📂 src/          # Source scripts: building, querying, and agents
-└── 📝 README.md
+NLP_polimi_26/
+|-- api_client/
+|   `-- NLP_assignment_api_client/
+|       `-- millionaire_client/       # client Python per la API del gioco
+|-- data/
+|   |-- indexes/                      # indici joblib/HNSW tracciati con Git LFS
+|   `-- maths/                        # PDF usati per indici matematici
+|-- docs/
+|   |-- assignment/                   # testo ufficiale della consegna
+|   |-- retrieval_indexes.md          # comandi dettagliati per indici retrieval
+|   `-- kelm_limited.md               # note per costruire subset KELM
+|-- logs/                             # risultati CSV degli esperimenti
+|-- project/
+|   |-- notebooks/                    # notebook progressivi 00-09
+|   `-- src/                          # script per corpus, indici, retrieval e tool
+|-- reports/
+|   `-- figures/                      # grafici di accuratezza e latenza
+|-- API_README.md                     # note dettagliate sul client PoliMillionaire
+`-- README.md
 ```
 
----
+## Setup
 
-## 🔍 Implemented Indexes Details
+Gli indici e diversi PDF sono file grandi e sono gestiti con Git LFS. Dopo il clone:
 
-To thoroughly evaluate the retrieval effectiveness, we built several index versions for both the **SimpleWiki** corpus (about 1.6 million chunks) and the **KELM** subset (500k entries).
-
-### 1. Sparse Indexes (Lexical Matching)
-Sparse indexes rely on exact token matching and frequency statistics. They are highly memory-efficient and fast.
-
-- **TF-IDF (`_tfidf.joblib`)**: Classic term-document matrix. Provides a quick global matching baseline and performs well when the query and document share a strong common vocabulary.
-- **BM25 Base (`_bm25.joblib`)**: Standard BM25 implementation, considered the excellent baseline in text Information Retrieval for handling term frequency saturation.
-- **BM25 Stop (`_stop_bm25.joblib`)**: Variant of the standard BM25 with the stop-word vocabulary removed. It eliminates the "noise" of common words (e.g., *the, a, is*), allowing BM25 to calculate more stable scores on truly important terms.
-- **BM25 Title-Boosted + Stop (`_title2_stop_bm25.joblib`)**: Highly optimized version that (1) filters out stop-words and (2) assigns double weight to the text of the document **titles**. This is very useful in encyclopedic QA tasks where the answer (or the requested entity) often matches the article's title.
-
-### 2. Dense Indexes (Semantic Matching)
-Dense indexes use neural embedding vectors to map queries and documents into the same semantic space. They enable "soft-matching" and overcome the synonymy limitations of lexical approaches.
-
-- **Dense embeddings + HNSW (`_dense_hnsw.index` & `_meta.joblib`)**: Neural vector mapping indexed with **HNSW** (Hierarchical Navigable Small World) data structures. Dense vectors allow for fast sub-linear semantic search even over hundreds of thousands of documents, albeit with higher RAM costs. The metadata file (`_meta.joblib`) maps the physical HNSW vector coordinates back to the original text document ID.
-
----
-
-## 🚀 Local Installation and Setup
-
-### Sensitive Requirements
-- Modules in `requirements.txt`.
-- **Git LFS** installed (crucial for downloading the heavy indexes located in `data/indexes/`). Otherwise, Git will only download a fragile pointer text file instead of the actual index, causing local runs to fail or crash.
-
-### Setup
 ```bash
-# 1. Clone the repository and fetch the heavy files
-git clone https://github.com/TUO-USER/NLP_polimi_26.git
-cd NLP_polimi_26
-git lfs pull # Explicitly force the download of joblib and binary test files
-
-# 2. Create the environment and install dependencies
-pip install -r requirements.txt
+git lfs install
+git lfs pull
 ```
 
----
+Ambiente Python consigliato:
 
-## ☁️ Heavy Algorithms Execution - Google Colab Setup
+```bash
+conda create -n polimillionaire python=3.11
+conda activate polimillionaire
+pip install numpy pandas scikit-learn joblib bm25s pypdf requests matplotlib seaborn sympy
+```
 
-Heavy computations, such as extracting neural embeddings (dense), were performed via Google Colab using the notebook `project/notebooks/07_build_dense_embeddings_colab.ipynb`.
+Per esperimenti con modelli locali o embeddings nei notebook Colab possono servire anche pacchetti come `transformers`, `sentence-transformers`, `accelerate`, `bitsandbytes` o `faiss`, a seconda della pipeline eseguita.
 
-The only specific requirement for Colab environments is that they **use a mounted Google Drive** to manage and persist the gigabytes of indexes without losing them during unexpected session interruptions. Therefore, note that the paths inside the Colab notebook differ from the local folder context; for example, they use prefixes like this:
-- `PROJECT_ROOT = Path('/content/drive/MyDrive/nlp26')`
-- `INDEX_DIR = PROJECT_ROOT / 'indexes'`
-- `KELM_CORPUS_PATH = PROJECT_ROOT / 'kelm' / 'kelm_subset_500k.jsonl'`
+## API PoliMillionaire
+
+Il server indicato dalla consegna e:
+
+```text
+http://131.175.15.22:51111/
+```
+
+La consegna segnala che il sito potrebbe non essere raggiungibile dalla rete Wi-Fi PoliMi per un blocco sulla porta.
+
+Il client Python si trova in:
+
+```text
+api_client/NLP_assignment_api_client/millionaire_client/
+```
+
+Uso minimo:
+
+```python
+import sys
+
+sys.path.append("api_client/NLP_assignment_api_client")
+
+from millionaire_client import MillionaireClient
+
+client = MillionaireClient("http://131.175.15.22:51111/")
+client.login(username, password)
+competitions = client.competitions.list_all()
+```
+
+Per dettagli su login, partite, risposta, leaderboard e logging vedere [API_README.md](API_README.md).
+
+## Notebook principali
+
+I notebook in `project/notebooks/` documentano lo sviluppo progressivo:
+
+| Notebook | Scopo |
+| --- | --- |
+| `00_api_smoke_test.ipynb` | test iniziale della API |
+| `01_quiz_tfidf_no_llm.ipynb` | baseline retrieval TF-IDF senza LLM |
+| `02_quiz_bm25_no_llm.ipynb` | baseline BM25 senza LLM |
+| `03_quiz_bm25_multi_index_no_llm.ipynb` | BM25 su piu indici |
+| `04_quiz_tfidf_multi_index_no_llm.ipynb` | TF-IDF su piu indici |
+| `05_quiz_bm25_multi_index_bert_no_llm*.ipynb` | retrieval con reranking BERT |
+| `06_quiz_bm25_bert_llm_agentic_tools_colab.ipynb` | pipeline RAG, BERT, LLM locale e tool |
+| `07_build_dense_embeddings_colab.ipynb` | costruzione embeddings densi |
+| `08_hybrid_pipeline.ipynb` | pipeline ibrida completa |
+| `09_hybrid_pipeline_math_tools.ipynb` | pipeline ibrida con focus su tool matematici |
+
+## Costruire corpus e indici
+
+La documentazione completa dei comandi e in [docs/retrieval_indexes.md](docs/retrieval_indexes.md). Esempio SimpleWiki:
+
+```bash
+conda run -n polimillionaire python project/src/make_retrieval_corpus.py \
+  data/wiki/simplewiki_articles.jsonl \
+  --source simplewiki \
+  --id-prefix swiki \
+  --max-words 160 \
+  --overlap-words 30 \
+  --min-words 20 \
+  --output data/chunks/simplewiki_160w.jsonl
+```
+
+Indice BM25 con title boost e stopword removal:
+
+```bash
+conda run -n polimillionaire python project/src/build_retrieval_index.py \
+  data/chunks/simplewiki_160w.jsonl \
+  --kind bm25 \
+  --title-repeat 2 \
+  --bm25-remove-stopwords \
+  --output data/indexes/simplewiki_160w_title2_stop_bm25.joblib
+```
+
+Query manuale su un indice:
+
+```bash
+conda run -n polimillionaire python project/src/query_retrieval_index.py \
+  data/indexes/simplewiki_160w_title2_stop_bm25.joblib \
+  --query "What term describes Buster Keaton's signature facial expression? Grin Laugh Deadpan Smirk" \
+  --top-k 3
+```
+
+Per costruire tutti gli indici BM25 dei libri matematici:
+
+```powershell
+.\project\src\build_all_textbook_bm25_indexes.ps1
+```
+
+Per costruire gli indici dense HNSW degli stessi libri, dopo aver creato i chunk con lo script precedente:
+
+```powershell
+.\project\src\build_all_textbook_dense_indexes.ps1
+```
+
+I file prodotti sono `*_200w_dense_hnsw.index` e `*_200w_dense_meta.joblib` in `data/indexes/`. Per usare il notebook 09 in Colab, copiarli anche in `/content/drive/MyDrive/nlp26/indexes`.
+
+## Strategie implementate
+
+- **Baseline API e logging**: controllo end-to-end del gioco e salvataggio telemetria.
+- **TF-IDF retrieval-only**: baseline lessicale veloce.
+- **BM25 retrieval-only**: baseline IR principale, con varianti su stopword, bigrammi e title boost.
+- **Multi-index retrieval**: fusione dei risultati da piu corpora con Reciprocal Rank Fusion.
+- **KELM retrieval**: subset locale per conoscenza fattuale strutturata.
+- **Dense retrieval**: embeddings e indice HNSW costruiti nei notebook Colab.
+- **BERT reranking**: riordinamento dei candidati recuperati.
+- **Agentic tools**: tool deterministici per matematica, algebra e calcolo simbolico.
+- **Pipeline ibrida**: combinazione di retrieval, reranking, tool e modello locale.
+
+## Log e analisi
+
+Gli esperimenti salvano CSV in `logs/`. I campi principali includono:
+
+- competizione, sessione, tentativo, livello e domanda;
+- opzioni e risposta scelta;
+- sorgente della decisione (`retrieval`, tool, LLM, ecc.);
+- evidenza recuperata;
+- correttezza, premio, timeout e latenza;
+- output grezzo di eventuali tool o modelli.
+
+Gli script `project/src/analyze_bm25_results.py` e `project/src/analyze_tfidf_results.py` producono analisi e grafici comparativi. Alcune figure gia generate sono in `reports/figures/`.
+
+## Valutazione suggerita
+
+Per rispondere bene alla consegna, il notebook finale dovrebbe mostrare:
+
+- accuratezza e livello medio raggiunto per ogni strategia;
+- latenza media e massimo tempo per domanda;
+- numero di timeout;
+- confronto tra baseline, retrieval-only, RAG, reranking, tool e LLM locale;
+- analisi per tipo di domanda o competizione;
+- esempi concreti di errori;
+- impatto del contesto RAG e dei prompt;
+- contributo dei tool matematici sulle domande calcolabili;
+- limiti della soluzione e possibili miglioramenti.
+
+## Note operative
+
+- Non inserire password nel notebook: usare secret o variabili d'ambiente.
+- Caricare gli indici una sola volta a inizio partita.
+- Limitare il numero di snippet nel prompt per ridurre latenza e rumore.
+- Validare sempre l'output del modello: se non e un `option_id` valido, usare un fallback.
+- Non stressare il server con molte partite consecutive.
+- Misurare sempre il tempo prima di inviare la risposta.
