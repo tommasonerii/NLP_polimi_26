@@ -1,8 +1,16 @@
 # PoliMillionaire NLP 2026
 
-Progetto per il corso di Natural Language Processing 2025/26 del Politecnico di Milano.
+**Progetto NLP 2025-26 @ Politecnico di Milano**
 
-L'obiettivo e costruire e valutare un chatbot capace di giocare a **Who wants to be a PoliMillionaire?**, usando la API testuale del gioco e rispondendo a domande multiple-choice entro il timeout previsto. La soluzione sviluppata in questo repository combina retrieval locale, ranking lessicale, indici su basi di conoscenza esterne e strumenti deterministici per domande matematiche.
+Chatbot che gioca a **Who Wants to Be a PoliMillionaire?** usando solo modelli open-weights eseguiti localmente. Il sistema combina retrieval augmented generation (RAG), ranking lessicale/neurale, tool-augmented reasoning per matematica e fallback robusti—tutto entro il vincolo di 30 secondi per domanda.
+
+**Stack finale (Notebook 10):**
+- 📚 Retrieval: SimpleWiki + KELM (BM25 + Dense HNSW)
+- 🔀 Fusione: Reciprocal Rank Fusion su 4 indici
+- 🧠 Reranking: Cross-encoder BERT (CPU)
+- 🧮 Math: LLM tool router + SymPy + fallback RAG
+- 🤖 LLM: Qwen3.5-9B (Q6_K_L GGUF via llama-cpp-python)
+- 📊 Logging: CSV con latenza, strategia, evidenza, correttezza
 
 ## Vincoli dell'assignment
 
@@ -17,20 +25,65 @@ La consegna richiede un notebook Colab autoesplicativo e una breve presentazione
 - bisogna evitare richieste consecutive troppo rapide al server del gioco;
 - la valutazione deve confrontare piu soluzioni, prompt, modelli, architetture e categorie di errore.
 
-La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/GroupAssignment2026.docx). La scadenza indicata nel documento e **2 giugno 2026 alle 23:00** via WeBeep.
+La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/GroupAssignment2026.docx). **Scadenza: 2 giugno 2026 alle 23:00 via WeBeep.**
 
-## Architettura del progetto
+## Quick Start (Colab)
 
-La pipeline e pensata per funzionare su Google Colab o in locale:
+**Per usare il notebook finale (10) in Colab:**
 
-1. la API PoliMillionaire fornisce domanda e opzioni;
-2. un router decide se usare tool deterministici, retrieval o una strategia custom;
-3. gli indici locali recuperano evidenza da SimpleWiki, KELM o libri di matematica;
-4. le opzioni vengono confrontate tramite scoring lessicale, BM25/TF-IDF e, nei notebook piu avanzati, componenti neurali;
-5. la risposta viene inviata alla API;
-6. ogni decisione viene salvata nei log CSV per analisi successiva.
+1. Coppia il notebook 10 su Google Drive:
+   ```text
+   MyDrive/nlp26/
+   ├── notebooks/10_agentic_math_tools_prof_style.ipynb
+   ├── api_client/NLP_assignment_api_client/
+   ├── src/*.py
+   └── indexes/simplewiki*.joblib, kelm*.joblib, *dense*.index, *dense*meta.joblib
+   ```
 
-Per le competizioni di matematica, `project/src/agentic_tools.py` usa regole e SymPy per intercettare casi calcolabili e scegliere direttamente l'opzione corretta quando possibile. Per le domande di conoscenza generale, `project/src/retrieval_quiz_runner.py` usa retrieval locale e scoring delle opzioni.
+2. Crea Colab Secrets (`Runtime > Manage sessions > Secrets`):
+   - `HF_TOKEN`: token Hugging Face per scaricare Qwen3.5-9B
+   - `USERNAME`: account PoliMillionaire
+   - `PASSWORD`: password
+
+3. Apri il notebook 10 in Colab e esegui le celle:
+   - Celle 1-7: setup dipendenze, GPU, paths
+   - Celle 8-13: carica indici, modelli, embedding
+   - Celle 14+: esegui game loop, salva CSV in Drive
+
+**Tempo stimato:** 5-10 min setup, poi ~10 sec/domanda durante il gioco.
+
+## Architettura
+
+La pipeline RAG segue il flusso:
+
+```
+Question + Opzioni
+    ↓
+[Maths branch? Solo per "Maths" competition]
+  ├─ Deterministic tools (regex pattern matching)
+  ├─ LLM tool-router (JSON struct) → SymPy/calcolo
+  └─ Fallback: → RAG se nessun tool match
+    ↓
+[Knowledge branch] Retrieval ibrido
+  ├─ SimpleWiki BM25 (sparse) + Dense HNSW (dense)
+  ├─ KELM BM25 (sparse) + Dense HNSW (dense)
+  ├─ Reciprocal Rank Fusion (RRF) su 4 ranking
+  └─ Cross-encoder reranking (BERT, CPU)
+    ↓
+[Scoring & Selection]
+  ├─ Top K evidenza fornita al LLM
+  ├─ Qwen3.5-9B predice option_id
+  └─ Fallback: prima opzione se output non parseable
+    ↓
+Option ID → API → Logging CSV
+```
+
+**Componenti:**
+- **Indici:** SimpleWiki (434k docs, 160w), KELM (500k asserzioni corte), libri di matematica (PDF → chunks)
+- **Retrieval:** BM25 (sparse, veloce) + embedding densi (HNSW, accurato)
+- **Reranking:** Cross-encoder MiniLM per riordinamento top-K
+- **Math tools:** Deterministic calcolator, equation solver, modular arithmetic, prime factorization, percentage
+- **LLM fallback:** Qwen3.5-9B (9B params, 7.6 GiB Q6_K_L quantized) per domande generali non risolte da tool
 
 ## Struttura
 
@@ -107,22 +160,23 @@ competitions = client.competitions.list_all()
 
 Per dettagli su login, partite, risposta, leaderboard e logging vedere [API_README.md](API_README.md).
 
-## Notebook principali
+## Notebook — Percorso dal prototipo alla produzione
 
-I notebook in `project/notebooks/` documentano lo sviluppo progressivo:
+I notebook in `project/notebooks/` documentano lo sviluppo progressivo. Scegli in base al tuo scenario:
 
-| Notebook | Scopo |
-| --- | --- |
-| `00_api_smoke_test.ipynb` | test iniziale della API |
-| `01_quiz_tfidf_no_llm.ipynb` | baseline retrieval TF-IDF senza LLM |
-| `02_quiz_bm25_no_llm.ipynb` | baseline BM25 senza LLM |
-| `03_quiz_bm25_multi_index_no_llm.ipynb` | BM25 su piu indici |
-| `04_quiz_tfidf_multi_index_no_llm.ipynb` | TF-IDF su piu indici |
-| `05_quiz_bm25_multi_index_bert_no_llm*.ipynb` | retrieval con reranking BERT |
-| `06_quiz_bm25_bert_llm_agentic_tools_colab.ipynb` | pipeline RAG, BERT, LLM locale e tool |
-| `07_build_dense_embeddings_colab.ipynb` | costruzione embeddings densi |
-| `08_hybrid_pipeline.ipynb` | pipeline ibrida completa |
-| `09_hybrid_pipeline_math_tools.ipynb` | pipeline ibrida con focus su tool matematici |
+| # | Nome | Scopo | Usa se... | GPU? |
+| --- | --- | --- | --- | --- |
+| **00** | API smoke test | Test API PoliMillionaire | Primo test API | No |
+| **01–02** | TF-IDF / BM25 baseline | Baseline retrieval senza LLM | Vuoi capire baseline | No |
+| **03–04** | Multi-index BM25/TF-IDF | Fusione multi-corpus | Studi IR classico | No |
+| **05** | BM25 + BERT reranking | Retrieval + neural reranking | Vuoi reranking | No |
+| **06** | BM25 + BERT + LLM + tools | RAG completa, LLM 1.5B, tool regex | Test su Colab T4 | ✓ |
+| **07** | Build dense embeddings | Costruisce indici HNSW | Solo per costruire indici | ✓ |
+| **08** | Hybrid pipeline (GGUF) | Qwen3.5 GGUF, retrieval ibrido | Test su Colab T4 | ✓ |
+| **09** | Hybrid + math tools | Come 08, math con regex | Prototipo produzione | ✓ |
+| **🎯 10** | **Agentic math tools** | **Come 09, math con tool-router JSON** | **Consegna finale** | ✓ |
+
+**Raccomandazione:** Usa il **notebook 10** per la consegna. È una refactoring di 09 con architettura tool-augmented professionale (JSON router, tool registry, fallback conservativo).
 
 ## Costruire corpus e indici
 
@@ -181,17 +235,29 @@ Se `python` non punta all'ambiente corretto:
 
 I file prodotti sono `*_200w_dense_hnsw.index` e `*_200w_dense_meta.joblib` in `data/indexes/`. Per usare il notebook 09 in Colab, copiarli anche in `/content/drive/MyDrive/nlp26/indexes`.
 
-## Strategie implementate
+## State-of-the-Art: Ricerca scientifica che supporta il design
 
-- **Baseline API e logging**: controllo end-to-end del gioco e salvataggio telemetria.
-- **TF-IDF retrieval-only**: baseline lessicale veloce.
-- **BM25 retrieval-only**: baseline IR principale, con varianti su stopword, bigrammi e title boost.
-- **Multi-index retrieval**: fusione dei risultati da piu corpora con Reciprocal Rank Fusion.
-- **KELM retrieval**: subset locale per conoscenza fattuale strutturata.
-- **Dense retrieval**: embeddings e indice HNSW costruiti nei notebook Colab.
-- **BERT reranking**: riordinamento dei candidati recuperati.
-- **Agentic tools**: tool deterministici per matematica, algebra e calcolo simbolico.
-- **Pipeline ibrida**: combinazione di retrieval, reranking, tool e modello locale.
+Il notebook 10 segue principi consolidati da lavori recenti in NLP e tool-augmented reasoning:
+
+| Principio | Riferimento | Applicazione |
+| --- | --- | --- |
+| **RAG per domande fattive** | Lewis et al. 2020 *Retrieval-Augmented Generation* | Retrieve evidenza → LLM answer |
+| **Chain-of-Thought prompting** | Wei et al. 2022 *Prompting CoT* | Decomporre matematica in step |
+| **ReAct: Reasoning + Acting** | Yao et al. 2022 | Router LLM decide tool, Python esegue |
+| **Structured tool calls** | Schick et al. 2023 *Toolformer* | LLM output JSON strutturato, non free-form |
+| **Program of Thoughts** | Chen et al. 2022 *PoT Prompting* | Math → esecuzione deterministica |
+| **Conservative fallback** | Design patterns from tool-use lit. | No tool match → fallback a RAG |
+
+## Strategie implementate (Notebooks 0-9)
+
+- **Baseline:** API e CSV logging end-to-end
+- **Sparse IR:** TF-IDF, BM25 con varianti (stopword, title-boost)
+- **Multi-index:** Reciprocal Rank Fusion su piu corpora
+- **KELM retrieval:** Knowledge graph strutturato per fattualita
+- **Dense retrieval:** HNSW embeddings (MiniLM-L6)
+- **Neural reranking:** Cross-encoder BERT (MiniLM-L-6-v2)
+- **Agentic tools (v1, Nb 09):** Regex pattern matching → SymPy
+- **Agentic tools (v2, Nb 10):** LLM JSON router → tool registry → fallback RAG
 
 ## Log e analisi
 
@@ -206,25 +272,97 @@ Gli esperimenti salvano CSV in `logs/`. I campi principali includono:
 
 Gli script `project/src/analyze_bm25_results.py` e `project/src/analyze_tfidf_results.py` producono analisi e grafici comparativi. Alcune figure gia generate sono in `reports/figures/`.
 
-## Valutazione suggerita
+## Valutazione: Metriche e Analisi richieste
 
-Per rispondere bene alla consegna, il notebook finale dovrebbe mostrare:
+Per rispondere alla consegna, il notebook finale (10) deve mostrare:
 
-- accuratezza e livello medio raggiunto per ogni strategia;
-- latenza media e massimo tempo per domanda;
-- numero di timeout;
-- confronto tra baseline, retrieval-only, RAG, reranking, tool e LLM locale;
-- analisi per tipo di domanda o competizione;
-- esempi concreti di errori;
-- impatto del contesto RAG e dei prompt;
-- contributo dei tool matematici sulle domande calcolabili;
-- limiti della soluzione e possibili miglioramenti.
+### Metriche di base
+- **Accuratezza** per ogni competizione (Entertainment, History, Science, Maths)
+- **Livello medio raggiunto** per category
+- **Latenza media** e **max latenza** per domanda
+- **Numero timeout** (risposte oltre 30s)
+- **Earned amount** medio per sessione
 
-## Note operative
+### Analisi comparativa
+- Baseline (first option) vs retrieval-only vs RAG vs tool-augmented
+- Impatto di ogni componente (sparse → dense → reranking → LLM)
+- Differenza tra Simple Wiki e KELM
+- Efficacia dei tool matematici su Maths category
 
-- Non inserire password nel notebook: usare secret o variabili d'ambiente.
-- Caricare gli indici una sola volta a inizio partita.
-- Limitare il numero di snippet nel prompt per ridurre latenza e rumore.
-- Validare sempre l'output del modello: se non e un `option_id` valido, usare un fallback.
-- Non stressare il server con molte partite consecutive.
-- Misurare sempre il tempo prima di inviare la risposta.
+### Analisi per categoria
+- Risultati breakdown per competizione
+- Corte di successo/fallimento per tipo di domanda
+- Esempi concreti di errori e vincoli (timeout, parse failures)
+- Impatto di RAG: domande risolte vs fallite per amount di context
+
+### Valutazione qualitativa
+- Limitazioni della soluzione (timeout, OOM, token limit)
+- Possibili miglioramenti (fine-tuning, ensemble, cache)
+- Trade-off latenza vs accuratezza
+- Robustezza e fallback chains
+
+**Consiglio:** Salva tutti i log in CSV, poi genera grafici con matplotlib/seaborn (già in `reports/figures/`).
+
+## Checklist per la consegna (scadenza 2 giugno 2026, 23:00)
+
+### Notebook Colab (main deliverable)
+- [ ] Usa notebook **10** come base (or 09, ma 10 è migliore)
+- [ ] Self-contained: nessuna dependency esterna fuori pip
+- [ ] Colab Secrets per USERNAME/PASSWORD (NO hardcoded credentials)
+- [ ] Google Drive path ben documentato
+- [ ] Runnable da inizio a fine senza interruzioni
+- [ ] Almeno **N=5 tentativi per competizione** per avere statistica valida
+- [ ] CSV logs salvati su Drive al termine
+
+### Analisi e risultati
+- [ ] Summary cell con metriche finali (accuracy, latenza, timeout count)
+- [ ] Tabella comparison: baseline vs retrieval vs RAG vs tool
+- [ ] Grafici: accuracy/competizione, latenza/livello
+- [ ] Almeno 3 esempi di domande risolte correttamente (con evidenza)
+- [ ] Almeno 3 esempi di fallimenti (timeout, parse error, wrong answer)
+
+### Video presentazione
+- [ ] Durata 5-10 min
+- [ ] Spiega il problema e vincoli
+- [ ] Mostra il notebook in azione
+- [ ] Commenta i risultati e metriche
+- [ ] Discute limiti e possibili miglioramenti
+- [ ] Upload su YouTube/Drive (link in WeBeep)
+
+### Caricamento su WeBeep
+- [ ] Notebook 10 (`.ipynb` o link Drive)
+- [ ] Breve README di setup (Colab secret names, paths, cose da modificare)
+- [ ] Link video presentazione
+- [ ] CSV finale dei risultati (facoltativo, per referenza)
+
+## Troubleshooting
+
+| Problema | Soluzione |
+| --- | --- |
+| `ModuleNotFoundError: millionaire_client` | Assicura che `api_client/NLP_assignment_api_client` sia in `sys.path` prima di `import` |
+| API unreachable (PoliMi WiFi) | Usa VPN o rete mobile; segnala al docente se persiste |
+| CUDA OOM su Colab | Riduci `n_gpu_layers` nel caricamento Qwen (prova 35 invece di -1) oppure passa a Q5_K_L |
+| Timeout su 30s | Aumenta retrieval latency? Riduci TOP_K_RERANK o LLM_CONTEXT_K |
+| CSV parse error in logging | Assicura que `json.dumps(..., ensure_ascii=False)` per testo UTF-8 |
+| Dense index missing su Drive | Esegui notebook 07 (build_dense_embeddings) o scarica da backup |
+| LLM output non parseable | Handler fallback in `option_id_from_text` → prima opzione |
+
+## Risorse utili
+
+- **Documentazione assignment:** [GroupAssignment2026.docx](docs/assignment/GroupAssignment2026.docx)
+- **API details:** [API_README.md](API_README.md)
+- **Comandi corpus/indici:** [docs/retrieval_indexes.md](docs/retrieval_indexes.md)
+- **KELM subset:** [docs/kelm_limited.md](docs/kelm_limited.md)
+
+## References
+
+1. Lewis et al. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.* ICLR. [[arxiv]](https://arxiv.org/abs/2005.11401)
+2. Wei et al. (2022). *Chain-of-Thought Prompting Elicits Reasoning in LLMs.* NeurIPS. [[arxiv]](https://arxiv.org/abs/2201.11903)
+3. Yao et al. (2022). *ReAct: Synergizing Reasoning and Acting in LMs.* ICLR. [[arxiv]](https://arxiv.org/abs/2210.03629)
+4. Chen et al. (2022). *Program of Thoughts Prompting.* arxiv. [[arxiv]](https://arxiv.org/abs/2211.12588)
+5. Schick et al. (2023). *Toolformer: Language Models Can Teach Themselves to Use Tools.* ICLR. [[arxiv]](https://arxiv.org/abs/2302.04761)
+
+---
+
+**Ultimo commit:** `9f27182` — Notebook 10 e logs  
+**Team:** NeuroniNegroni (Tommaso, Giulia, Gio)
