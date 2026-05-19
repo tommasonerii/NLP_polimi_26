@@ -8,7 +8,7 @@ Chatbot che gioca a **Who Wants to Be a PoliMillionaire?** usando solo modelli o
 - 📚 Retrieval: SimpleWiki + KELM (BM25 + Dense HNSW)
 - 🔀 Fusione: Reciprocal Rank Fusion su 4 indici
 - 🧠 Reranking: Cross-encoder BERT (CPU)
-- 🧮 Math: LLM tool router + SymPy + fallback RAG
+- 🧮 Math: LLM tool router + SymPy + fallback diretto Qwen con `/think`
 - 🤖 LLM: Qwen3.5-9B (Q6_K_L GGUF via llama-cpp-python)
 - 📊 Logging: CSV con latenza, strategia, evidenza, correttezza
 
@@ -61,8 +61,8 @@ Question + Opzioni
     ↓
 [Maths branch? Solo per "Maths" competition]
   ├─ Deterministic tools (regex pattern matching)
-  ├─ LLM tool-router (JSON struct) → SymPy/calcolo
-  └─ Fallback: → RAG se nessun tool match
+  ├─ LLM tool-router / planner JSON con `/no_think` → SymPy/calcolo
+  └─ Fallback: Qwen direct Maths con `/think` + contesto textbook se utile
     ↓
 [Knowledge branch] Retrieval ibrido
   ├─ SimpleWiki BM25 (sparse) + Dense HNSW (dense)
@@ -72,7 +72,7 @@ Question + Opzioni
     ↓
 [Scoring & Selection]
   ├─ Top K evidenza fornita al LLM
-  ├─ Qwen3.5-9B predice option_id
+  ├─ Qwen3.5-9B in `/no_think` predice option_id
   └─ Fallback: prima opzione se output non parseable
     ↓
 Option ID → API → Logging CSV
@@ -82,8 +82,8 @@ Option ID → API → Logging CSV
 - **Indici:** SimpleWiki (434k docs, 160w), KELM (500k asserzioni corte), libri di matematica (PDF → chunks)
 - **Retrieval:** BM25 (sparse, veloce) + embedding densi (HNSW, accurato)
 - **Reranking:** Cross-encoder MiniLM per riordinamento top-K
-- **Math tools:** Deterministic calcolator, equation solver, modular arithmetic, prime factorization, percentage
-- **LLM fallback:** Qwen3.5-9B (9B params, 7.6 GiB Q6_K_L quantized) per domande generali non risolte da tool
+- **Math tools:** Deterministic calculator, equation solver, modular arithmetic, prime factorization, percentage, JSON planner/router
+- **LLM fallback:** Qwen3.5-9B (9B params, 7.6 GiB Q6_K_L quantized). La modalità `/no_think` resta attiva per RAG e tool JSON; `/think` viene usato solo nel fallback diretto Maths dopo il fallimento dei tool.
 
 ## Struttura
 
@@ -174,9 +174,9 @@ I notebook in `project/notebooks/` documentano lo sviluppo progressivo. Scegli i
 | **07** | Build dense embeddings | Costruisce indici HNSW | Solo per costruire indici | ✓ |
 | **08** | Hybrid pipeline (GGUF) | Qwen3.5 GGUF, retrieval ibrido | Test su Colab T4 | ✓ |
 | **09** | Hybrid + math tools | Come 08, math con regex | Prototipo produzione | ✓ |
-| **🎯 10** | **Agentic math tools** | **Come 09, math con tool-router JSON** | **Consegna finale** | ✓ |
+| **🎯 10** | **Agentic math tools** | **Come 09, math con tool-router JSON + `/think` solo nel fallback Maths** | **Consegna finale** | ✓ |
 
-**Raccomandazione:** Usa il **notebook 10** per la consegna. È una refactoring di 09 con architettura tool-augmented professionale (JSON router, tool registry, fallback conservativo).
+**Raccomandazione:** Usa il **notebook 10** per la consegna. È una refactoring di 09 con architettura tool-augmented professionale (JSON router, tool registry, fallback conservativo). Per robustezza, il reasoning Qwen è disabilitato con `/no_think` nelle risposte RAG e nei router JSON, ed è abilitato con `/think` solo nel fallback diretto Maths.
 
 ## Costruire corpus e indici
 
@@ -242,8 +242,8 @@ Il notebook 10 segue principi consolidati da lavori recenti in NLP e tool-augmen
 | Principio | Riferimento | Applicazione |
 | --- | --- | --- |
 | **RAG per domande fattive** | Lewis et al. 2020 *Retrieval-Augmented Generation* | Retrieve evidenza → LLM answer |
-| **Chain-of-Thought prompting** | Wei et al. 2022 *Prompting CoT* | Decomporre matematica in step |
-| **ReAct: Reasoning + Acting** | Yao et al. 2022 | Router LLM decide tool, Python esegue |
+| **Chain-of-Thought prompting** | Wei et al. 2022 *Prompting CoT* | Usato in modo selettivo: `/think` solo nel fallback diretto Maths |
+| **ReAct: Reasoning + Acting** | Yao et al. 2022 | Router LLM in `/no_think` decide tool, Python esegue |
 | **Structured tool calls** | Schick et al. 2023 *Toolformer* | LLM output JSON strutturato, non free-form |
 | **Program of Thoughts** | Chen et al. 2022 *PoT Prompting* | Math → esecuzione deterministica |
 | **Conservative fallback** | Design patterns from tool-use lit. | No tool match → fallback a RAG |
@@ -257,7 +257,7 @@ Il notebook 10 segue principi consolidati da lavori recenti in NLP e tool-augmen
 - **Dense retrieval:** HNSW embeddings (MiniLM-L6)
 - **Neural reranking:** Cross-encoder BERT (MiniLM-L-6-v2)
 - **Agentic tools (v1, Nb 09):** Regex pattern matching → SymPy
-- **Agentic tools (v2, Nb 10):** LLM JSON router → tool registry → fallback RAG
+- **Agentic tools (v2, Nb 10):** LLM JSON router/planner in `/no_think` → tool registry → fallback diretto Maths in `/think`
 
 ## Log e analisi
 
@@ -346,6 +346,7 @@ Per rispondere alla consegna, il notebook finale (10) deve mostrare:
 | CSV parse error in logging | Assicura que `json.dumps(..., ensure_ascii=False)` per testo UTF-8 |
 | Dense index missing su Drive | Esegui notebook 07 (build_dense_embeddings) o scarica da backup |
 | LLM output non parseable | Handler fallback in `option_id_from_text` → prima opzione |
+| Maths fallback troppo verboso o lento | Verifica che `/think` sia usato solo nel fallback Maths, con `MATH_DIRECT_MAX_NEW_TOKENS` controllato |
 
 ## Risorse utili
 
