@@ -4,12 +4,13 @@
 
 Chatbot che gioca a **Who Wants to Be a PoliMillionaire?** usando solo modelli open-weights eseguiti localmente. Il sistema combina retrieval augmented generation (RAG), ranking lessicale/neurale, tool-augmented reasoning per matematica e fallback robusti—tutto entro il vincolo di 30 secondi per domanda.
 
-**Stack consigliato (Notebook 12):**
+**Stack consigliato (Notebook 12 V2):**
 - 📚 Retrieval: SimpleWiki + KELM (BM25 + Dense HNSW) + option-wise evidence retrieval
 - 🔀 Fusione: Reciprocal Rank Fusion su 4 indici
 - 🧠 Reranking: Cross-encoder BERT (CPU)
-- 🧮 Math: deterministic router + validated generic tools (schema, guard, deterministic matching) + SymPy
+- 🧮 Math: deterministic router + validated generic tools (schema, guard, deterministic matching) + SymPy + fix conservativi dai log
 - 🤖 LLM: Qwen3.5-9B (Q6_K_L GGUF via llama-cpp-python)
+- 🎯 Output constraints: GBNF per option id finale e JSON schema constraint per router Maths quando supportato
 - 📊 Logging: CSV con latenza, strategia, evidenza, confidence, tool traces, rejection reasons e correttezza
 
 ## Vincoli dell'assignment
@@ -29,12 +30,12 @@ La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/Grou
 
 ## Quick Start (Colab)
 
-**Per usare il notebook 12 in Colab:**
+**Per usare il notebook 12 V2 in Colab:**
 
-1. Copia il notebook 12 su Google Drive:
+1. Copia il notebook 12 V2 su Google Drive:
    ```text
    MyDrive/nlp26/
-   ├── notebooks/12_validated_tools_option_retrieval.ipynb
+   ├── notebooks/12_V2_validated_tools_option_retrieval.ipynb
    ├── api_client/NLP_assignment_api_client/
    ├── src/*.py
    └── indexes/simplewiki*.joblib, kelm*.joblib, *dense*.index, *dense*meta.joblib
@@ -45,7 +46,7 @@ La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/Grou
    - `USERNAME`: account PoliMillionaire
    - `PASSWORD`: password
 
-3. Apri il notebook 12 in Colab e esegui le sezioni:
+3. Apri il notebook 12 V2 in Colab e esegui le sezioni:
    - Sezioni 1-7: setup dipendenze, GPU, paths
    - Sezioni 8-9: carica retrieval stack, reranker e option-wise retrieval
    - Sezioni 10-13: carica tool validati, policy di routing, test e API loop
@@ -60,22 +61,22 @@ La pipeline RAG segue il flusso:
 Question + Opzioni
     ↓
 [Maths branch? Solo per "Maths" competition]
-  ├─ Deterministic router: pattern ricorrenti + rule-based shortcuts
+  ├─ Deterministic router: pattern ricorrenti + rule-based shortcuts dai log
   ├─ Validated generic tools: JSON schema → semantic guard → SymPy/Python
   ├─ Deterministic option matching: confronto numerico/testuale con le opzioni
-  └─ Fallback: un solo JSON router validato, poi Qwen direct Maths in `/no_think`
+  └─ Fallback: JSON router vincolato se disponibile, poi Qwen direct Maths con output GBNF
     ↓
 [Knowledge branch] Retrieval ibrido
   ├─ SimpleWiki BM25 (sparse) + Dense HNSW (dense)
   ├─ KELM BM25 (sparse) + Dense HNSW (dense)
   ├─ Reciprocal Rank Fusion (RRF) su 4 ranking
   ├─ Cross-encoder reranking (BERT, CPU)
-  └─ Option-wise retrieval per Entertainment e domande con evidenza debole
+  └─ Option-wise retrieval adattivo: Entertainment/History sempre, Science solo se incerta
     ↓
 [Scoring & Selection]
   ├─ Top K evidenza fornita al LLM
   ├─ Score/margin retrieval + option evidence scores
-  ├─ Qwen3.5-9B in `/no_think` predice option_id
+  ├─ Qwen3.5-9B in `/no_think` predice option_id vincolato a un singolo digit 0-3
   └─ Fallback tracciati: parser opzioni, risposta diretta, prima opzione solo come ultima difesa
     ↓
 Option ID → API → Logging CSV
@@ -180,7 +181,8 @@ I notebook in `project/notebooks/` documentano lo sviluppo progressivo. Scegli i
 | **09** | Hybrid + math tools | Come 08, math con regex | Prototipo produzione | ✓ |
 | **10** | Agentic math tools | Come 09, math con tool-router JSON + fallback Maths breve in `/no_think` | Baseline agentica, utile per confronto | ✓ |
 | **11** | Router-hardened Maths | Come 10, ma con parser JSON robusto, stop fix, regole deterministic/statistics estese e tool coverage migliore | Ablation per hardening del 10 | ✓ |
-| **12** | Validated tools + option retrieval | Tool layer generico validato, semantic guards, matching deterministico e retrieval per opzione | Punto di partenza consigliato per nuove prove | ✓ |
+| **12** | Validated tools + option retrieval | Tool layer generico validato, semantic guards, matching deterministico e retrieval per opzione | Baseline V1 da confrontare con V2 | ✓ |
+| **12 V2** | Constrained outputs + adaptive retrieval + Maths fixes | Come 12, ma con GBNF sull'option id finale, router JSON vincolato quando supportato, option-wise adattivo e fix deterministici Maths dai log | Punto di partenza consigliato per nuove prove | ✓ |
 
 ### Problemi osservati nei notebook 10 e 11
 
@@ -199,7 +201,28 @@ Il notebook 12 mantiene la struttura Colab self-contained e non usa LangChain. L
 - **Option-wise retrieval:** per Entertainment e casi con evidenza debole recupera contesto per ciascuna opzione e salva score/margini.
 - **Log piu leggibili:** aggiunge confidence, retrieval score summary, option evidence scores, tool traces, rejection reasons e fallback indicators.
 
-**Raccomandazione:** per nuove prove parti dal **notebook 12**; tieni **10** e **11** come baseline/ablation per mostrare il percorso di miglioramento.
+### Problemi osservati nel notebook 12
+
+Il log `logs/run_qwen35_gguf_validated_tools_option_retrieval.csv` ha evidenziato alcuni limiti pratici del notebook 12:
+
+- **Maths non usava davvero i tool validati:** nel run analizzato tutte le domande Maths sono finite su `math_direct_llm_qwen35_gguf`; il router proponeva talvolta tool validi sintatticamente, ma non adatti al problema, oppure mancava il tool deterministico necessario.
+- **Output finali troppo verbosi:** alcune risposte LLM iniziavano con l'id corretto ma continuavano con testo come `Wait`, `Explanation` o piu option id, aumentando latenza e fragilita del parsing.
+- **Option-wise retrieval troppo rigido:** era attivo sempre per Entertainment e solo con soglia fissa sul top score negli altri casi; History restava spesso su retrieval globale anche quando l'evidenza era ambigua.
+- **Confidence sovrastimata:** score retrieval alti potevano produrre confidence molto alta anche quando piu opzioni avevano evidenza simile o quando il documento recuperato contraddiceva l'opzione scelta.
+- **Copertura Maths incompleta:** fallivano pattern concreti come durata sopra una soglia per una traiettoria quadratica, disequazioni intere con valori assoluti, trasformazioni statistiche additive e disegni fattoriali.
+
+### Notebook 12 V2: correzioni
+
+Il notebook `project/notebooks/12_V2_validated_tools_option_retrieval.ipynb` mantiene l'architettura del 12 ma corregge i problemi osservati nei log:
+
+- **GBNF per risposta finale:** le chiamate finali RAG, option-wise e Maths direct usano una grammatica `root ::= [0-3]` quando supportata da `llama-cpp-python`, forzando un singolo option id.
+- **Router Maths vincolato:** il router LLM usa `create_chat_completion(..., response_format=...)` con JSON schema quando disponibile; la validazione Python resta obbligatoria per schema, semantic guard e matching.
+- **Adaptive option-wise retrieval:** Entertainment e History/Politics usano option-wise sempre; Science/Nature lo usa solo quando top score o margine indicano incertezza; Maths non lo usa come strategia principale.
+- **Fix Maths deterministici:** aggiunti handler conservativi per traiettorie quadratiche sopra soglia, somme di soluzioni intere con valori assoluti, word problem delle pile, trasformazioni statistiche additive, experimental design fattoriale, correlazione e mutua esclusivita/indipendenza.
+- **Confidence piu conservativa:** la confidence option-wise viene limitata quando il margine tra opzioni e piccolo, evitando stime troppo ottimistiche.
+- **Log separato:** il V2 salva in `logs/run_qwen35_gguf_validated_tools_option_retrieval_v2.csv`, cosi il confronto con il 12 resta pulito.
+
+**Raccomandazione:** per nuove prove parti dal **notebook 12 V2**; tieni **12**, **11** e **10** come baseline/ablation per mostrare il percorso di miglioramento.
 
 ## Costruire corpus e indici
 
@@ -256,11 +279,11 @@ Se `python` non punta all'ambiente corretto:
   -PythonPrefixArgs @('run', '-n', 'polimillionaire', 'python')
 ```
 
-I file prodotti sono `*_200w_dense_hnsw.index` e `*_200w_dense_meta.joblib` in `data/indexes/`. Per usare il notebook 12 in Colab, copiarli anche in `/content/drive/MyDrive/nlp26/indexes`.
+I file prodotti sono `*_200w_dense_hnsw.index` e `*_200w_dense_meta.joblib` in `data/indexes/`. Per usare il notebook 12 V2 in Colab, copiarli anche in `/content/drive/MyDrive/nlp26/indexes`.
 
 ## State-of-the-Art: Ricerca scientifica che supporta il design
 
-Il notebook 12 applica principi consolidati da lavori recenti in NLP e tool-augmented reasoning:
+Il notebook 12 V2 applica principi consolidati da lavori recenti in NLP e tool-augmented reasoning:
 
 | Principio | Riferimento | Applicazione |
 | --- | --- | --- |
@@ -331,7 +354,7 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 ## Checklist per la consegna (scadenza 2 giugno 2026, 23:00)
 
 ### Notebook Colab (main deliverable)
-- [ ] Usa notebook **12** come base per nuove prove; conserva 10 e 11 come baseline/ablation
+- [ ] Usa notebook **12 V2** come base per nuove prove; conserva 12, 11 e 10 come baseline/ablation
 - [ ] Self-contained: nessuna dependency esterna fuori pip
 - [ ] Colab Secrets per USERNAME/PASSWORD (NO hardcoded credentials)
 - [ ] Google Drive path ben documentato
@@ -355,7 +378,7 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 - [ ] Upload su YouTube/Drive (link in WeBeep)
 
 ### Caricamento su WeBeep
-- [ ] Notebook 12 (`.ipynb` o link Drive al notebook usato)
+- [ ] Notebook 12 V2 (`.ipynb` o link Drive al notebook usato)
 - [ ] Breve README di setup (Colab secret names, paths, cose da modificare)
 - [ ] Link video presentazione
 - [ ] CSV dei risultati (facoltativo, per referenza)
@@ -368,12 +391,12 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 | API unreachable (PoliMi WiFi) | Usa VPN o rete mobile; segnala al docente se persiste |
 | Colab non assegna GPU o quota esaurita | Cambia account/runtime o attendi il reset della quota; prima di caricare Qwen esegui `!nvidia-smi` e verifica che compaia una T4 |
 | CUDA OOM su Colab | Riduci `n_gpu_layers` nel caricamento Qwen (prova 35 invece di -1) oppure passa a Q5_K_L |
-| `Failed to load model from file` su GGUF | Verifica size/header del file. Il notebook 12 pinna la revision Hugging Face usata dai run riusciti del notebook 11, per evitare re-upload del branch `main` non compatibili con il wheel `llama-cpp-python` installato |
+| `Failed to load model from file` su GGUF | Verifica size/header del file. Il notebook 12 V2 pinna la revision Hugging Face usata dai run riusciti del notebook 11, per evitare re-upload del branch `main` non compatibili con il wheel `llama-cpp-python` installato |
 | Timeout su 30s | Riduci `TOP_K_RERANK`, `LLM_CONTEXT_K` o disabilita fallback LLM non essenziali |
 | CSV parse error in logging | Assicura que `json.dumps(..., ensure_ascii=False)` per testo UTF-8 |
 | Dense index missing su Drive | Esegui notebook 07 (build_dense_embeddings) o scarica da backup |
-| LLM output non parseable | Notebook 12 valida JSON e tool call; se il tool viene scartato, salva il motivo e passa a fallback controllati |
-| Maths fallback troppo verboso o lento | Notebook 12 prova prima tool deterministici validati e usa Qwen diretto solo come fallback |
+| LLM output non parseable | Notebook 12 V2 usa GBNF per l'option id finale e valida JSON/tool call; se un vincolo runtime non e supportato, passa a fallback controllati e tracciati |
+| Maths fallback troppo verboso o lento | Notebook 12 V2 prova prima tool deterministici validati, usa JSON router vincolato quando disponibile e limita il fallback diretto con output GBNF |
 
 ## Risorse utili
 
@@ -392,5 +415,5 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 
 ---
 
-**Aggiornamento locale:** aggiunto Notebook 12 con validated tools e option-wise retrieval  
+**Aggiornamento locale:** aggiunto Notebook 12 V2 con constrained outputs, adaptive retrieval e fix Maths dai log  
 **Team:** NeuroniNegroni (Tommaso, Giulia, Gio)
