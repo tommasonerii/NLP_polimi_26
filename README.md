@@ -4,13 +4,13 @@
 
 Chatbot che gioca a **Who Wants to Be a PoliMillionaire?** usando solo modelli open-weights eseguiti localmente. Il sistema combina retrieval augmented generation (RAG), ranking lessicale/neurale, tool-augmented reasoning per matematica e fallback robusti—tutto entro il vincolo di 30 secondi per domanda.
 
-**Stack finale (Notebook 11):**
-- 📚 Retrieval: SimpleWiki + KELM (BM25 + Dense HNSW)
+**Stack consigliato (Notebook 12):**
+- 📚 Retrieval: SimpleWiki + KELM (BM25 + Dense HNSW) + option-wise evidence retrieval
 - 🔀 Fusione: Reciprocal Rank Fusion su 4 indici
 - 🧠 Reranking: Cross-encoder BERT (CPU)
-- 🧮 Math: deterministic router + JSON tool planner/router hardened + SymPy + fallback diretto Qwen in `/no_think`
+- 🧮 Math: deterministic router + validated generic tools (schema, guard, deterministic matching) + SymPy
 - 🤖 LLM: Qwen3.5-9B (Q6_K_L GGUF via llama-cpp-python)
-- 📊 Logging: CSV con latenza, strategia, evidenza, correttezza
+- 📊 Logging: CSV con latenza, strategia, evidenza, confidence, tool traces, rejection reasons e correttezza
 
 ## Vincoli dell'assignment
 
@@ -29,12 +29,12 @@ La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/Grou
 
 ## Quick Start (Colab)
 
-**Per usare il notebook finale (11) in Colab:**
+**Per usare il notebook 12 in Colab:**
 
-1. Copia il notebook 11 su Google Drive:
+1. Copia il notebook 12 su Google Drive:
    ```text
    MyDrive/nlp26/
-   ├── notebooks/11_agentic_math_router_hardened.ipynb
+   ├── notebooks/12_validated_tools_option_retrieval.ipynb
    ├── api_client/NLP_assignment_api_client/
    ├── src/*.py
    └── indexes/simplewiki*.joblib, kelm*.joblib, *dense*.index, *dense*meta.joblib
@@ -45,10 +45,10 @@ La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/Grou
    - `USERNAME`: account PoliMillionaire
    - `PASSWORD`: password
 
-3. Apri il notebook 11 in Colab e esegui le celle:
-   - Celle 1-7: setup dipendenze, GPU, paths
-   - Celle 8-13: carica indici, modelli, embedding
-   - Celle 14+: esegui game loop, salva CSV in Drive
+3. Apri il notebook 12 in Colab e esegui le sezioni:
+   - Sezioni 1-7: setup dipendenze, GPU, paths
+   - Sezioni 8-9: carica retrieval stack, reranker e option-wise retrieval
+   - Sezioni 10-13: carica tool validati, policy di routing, test e API loop
 
 **Tempo stimato:** 5-10 min setup, poi ~10 sec/domanda durante il gioco.
 
@@ -60,21 +60,23 @@ La pipeline RAG segue il flusso:
 Question + Opzioni
     ↓
 [Maths branch? Solo per "Maths" competition]
-  ├─ Deterministic router: pattern frequenti + theorem rules
-  ├─ Hardened JSON planner/router con `/no_think` → SymPy/calcolo
-  ├─ Robust parser: primo JSON bilanciato anche se Qwen aggiunge prose
-  └─ Fallback: Qwen direct Maths in `/no_think`, senza stop su newline, + contesto textbook se utile
+  ├─ Deterministic router: pattern ricorrenti + rule-based shortcuts
+  ├─ Validated generic tools: JSON schema → semantic guard → SymPy/Python
+  ├─ Deterministic option matching: confronto numerico/testuale con le opzioni
+  └─ Fallback: un solo JSON router validato, poi Qwen direct Maths in `/no_think`
     ↓
 [Knowledge branch] Retrieval ibrido
   ├─ SimpleWiki BM25 (sparse) + Dense HNSW (dense)
   ├─ KELM BM25 (sparse) + Dense HNSW (dense)
   ├─ Reciprocal Rank Fusion (RRF) su 4 ranking
-  └─ Cross-encoder reranking (BERT, CPU)
+  ├─ Cross-encoder reranking (BERT, CPU)
+  └─ Option-wise retrieval per Entertainment e domande con evidenza debole
     ↓
 [Scoring & Selection]
   ├─ Top K evidenza fornita al LLM
+  ├─ Score/margin retrieval + option evidence scores
   ├─ Qwen3.5-9B in `/no_think` predice option_id
-  └─ Fallback: prima opzione se output non parseable
+  └─ Fallback tracciati: parser opzioni, risposta diretta, prima opzione solo come ultima difesa
     ↓
 Option ID → API → Logging CSV
 ```
@@ -83,8 +85,9 @@ Option ID → API → Logging CSV
 - **Indici:** SimpleWiki (434k docs, 160w), KELM (500k asserzioni corte), libri di matematica (PDF → chunks)
 - **Retrieval:** BM25 (sparse, veloce) + embedding densi (HNSW, accurato)
 - **Reranking:** Cross-encoder MiniLM per riordinamento top-K
-- **Math tools:** Deterministic calculator, equation solver, modular arithmetic, congruence count, combinatorics, normal/probability utilities, theorem lookup, JSON planner/router
-- **LLM fallback:** Qwen3.5-9B (9B params, 7.6 GiB Q6_K_L quantized). La modalità `/no_think` resta attiva per RAG, tool JSON e fallback diretto Maths; l'esperimento `/think` e stato scartato dalla pipeline finale per latenza e output non parsabile.
+- **Option-wise retrieval:** per ogni opzione costruisce una query dedicata, recupera evidenza e salva score/margine nei log.
+- **Math tools:** calculator, equation solver, modular arithmetic, independent-trials probability, binomial/proportion tests, normal utilities, permutation max order, finite abelian group count, combinatorics, geometry e concept classifier.
+- **LLM fallback:** Qwen3.5-9B (9B params, 7.6 GiB Q6_K_L quantized). La modalità `/no_think` resta attiva per RAG, tool JSON e fallback diretto Maths; l'esperimento `/think` e stato scartato per latenza e output non parsabile.
 
 ## Struttura
 
@@ -102,7 +105,7 @@ NLP_polimi_26/
 |   `-- kelm_limited.md               # note per costruire subset KELM
 |-- logs/                             # risultati CSV degli esperimenti
 |-- project/
-|   |-- notebooks/                    # notebook progressivi 00-11
+|   |-- notebooks/                    # notebook progressivi 00-12
 |   `-- src/                          # script per corpus, indici, retrieval e tool
 |-- reports/
 |   `-- figures/                      # grafici di accuratezza e latenza
@@ -175,10 +178,28 @@ I notebook in `project/notebooks/` documentano lo sviluppo progressivo. Scegli i
 | **07** | Build dense embeddings | Costruisce indici HNSW | Solo per costruire indici | ✓ |
 | **08** | Hybrid pipeline (GGUF) | Qwen3.5 GGUF, retrieval ibrido | Test su Colab T4 | ✓ |
 | **09** | Hybrid + math tools | Come 08, math con regex | Prototipo produzione | ✓ |
-| **10** | Agentic math tools | Come 09, math con tool-router JSON + fallback Maths breve in `/no_think` | Baseline produzione precedente | ✓ |
-| **🎯 11** | **Router-hardened Maths** | **Come 10, ma con parser JSON robusto, stop fix, regole deterministic/statistics estese e tool coverage migliore** | **Consegna finale** | ✓ |
+| **10** | Agentic math tools | Come 09, math con tool-router JSON + fallback Maths breve in `/no_think` | Baseline agentica, utile per confronto | ✓ |
+| **11** | Router-hardened Maths | Come 10, ma con parser JSON robusto, stop fix, regole deterministic/statistics estese e tool coverage migliore | Ablation per hardening del 10 | ✓ |
+| **12** | Validated tools + option retrieval | Tool layer generico validato, semantic guards, matching deterministico e retrieval per opzione | Punto di partenza consigliato per nuove prove | ✓ |
 
-**Raccomandazione:** Usa il **notebook 11** per la consegna. È il notebook 10 con hardening mirato sui trace Maths: parser JSON a oggetto bilanciato, `MATH_PLAN_MAX_NEW_TOKENS`, direct fallback senza `\n` negli stop token, regole deterministiche per casi ricorrenti e supporto SymPy esteso (`gcd`, `lcm`, `divisor_count`, conteggi modulari).
+### Problemi osservati nei notebook 10 e 11
+
+- **Notebook 10:** il router/planner JSON delegava troppo al modello. Nei log compaiono risposte non JSON, JSON parziali o tool call semanticamente sbagliate; il fallback Maths diretto era breve e poteva troncare ragionamenti utili, mentre la coverage dei tool restava legata a casi specifici.
+- **Notebook 11:** risolve parte del parsing e dei timeout, ma mantiene un planner LLM costoso e fragile. Nei trace Maths alcuni tool venivano scelti con regole troppo permissive, per esempio theorem/concept lookup usato anche quando serviva un calcolo strutturato; inoltre mancavano guardie semantiche forti e un matching deterministico uniforme verso le opzioni.
+- **Retrieval in 10/11:** la query globale funziona bene quando il documento recuperato contiene già domanda e risposta, ma su Entertainment e domande fattive con evidenza debole può non recuperare prove per tutte le opzioni. Questo rende difficile distinguere opzioni simili e capire dal log perche una risposta e stata scelta.
+- **Logging in 10/11:** latenza, strategia e output grezzo sono presenti, ma mancano campi diagnostici piu utili per debug: confidence, margine retrieval, score per opzione, tool accettati/scartati e motivo dello scarto.
+
+### Notebook 12: cosa introduce
+
+Il notebook 12 mantiene la struttura Colab self-contained e non usa LangChain. L'obiettivo e avere tool generici e verificabili, non patch specifiche per singole domande:
+
+- **ToolSpec-like layer:** ogni tool ha schema, parser, semantic guard, esecuzione controllata e risultato strutturato.
+- **Maths generico:** include power sums complessi, probabilita su prove indipendenti, aritmetica modulare, test binomiali/proporzioni, distribuzione normale, massimo ordine di permutazione, conteggio di gruppi abeliani finiti, combinatorica, geometria e classificazione concettuale.
+- **Router piu conservativo:** prima regole deterministiche e tool validati, poi un singolo router JSON validato, poi fallback diretto Qwen.
+- **Option-wise retrieval:** per Entertainment e casi con evidenza debole recupera contesto per ciascuna opzione e salva score/margini.
+- **Log piu leggibili:** aggiunge confidence, retrieval score summary, option evidence scores, tool traces, rejection reasons e fallback indicators.
+
+**Raccomandazione:** per nuove prove parti dal **notebook 12**; tieni **10** e **11** come baseline/ablation per mostrare il percorso di miglioramento.
 
 ## Costruire corpus e indici
 
@@ -235,22 +256,22 @@ Se `python` non punta all'ambiente corretto:
   -PythonPrefixArgs @('run', '-n', 'polimillionaire', 'python')
 ```
 
-I file prodotti sono `*_200w_dense_hnsw.index` e `*_200w_dense_meta.joblib` in `data/indexes/`. Per usare il notebook 11 in Colab, copiarli anche in `/content/drive/MyDrive/nlp26/indexes`.
+I file prodotti sono `*_200w_dense_hnsw.index` e `*_200w_dense_meta.joblib` in `data/indexes/`. Per usare il notebook 12 in Colab, copiarli anche in `/content/drive/MyDrive/nlp26/indexes`.
 
 ## State-of-the-Art: Ricerca scientifica che supporta il design
 
-Il notebook 11 segue principi consolidati da lavori recenti in NLP e tool-augmented reasoning:
+Il notebook 12 applica principi consolidati da lavori recenti in NLP e tool-augmented reasoning:
 
 | Principio | Riferimento | Applicazione |
 | --- | --- | --- |
 | **RAG per domande fattive** | Lewis et al. 2020 *Retrieval-Augmented Generation* | Retrieve evidenza → LLM answer |
-| **Chain-of-Thought prompting** | Wei et al. 2022 *Prompting CoT* | Valutato sperimentalmente; escluso dalla pipeline finale per latenza su Maths |
-| **ReAct: Reasoning + Acting** | Yao et al. 2022 | Router LLM in `/no_think` decide tool, Python esegue |
-| **Structured tool calls** | Schick et al. 2023 *Toolformer* | LLM output JSON strutturato, non free-form |
-| **Program of Thoughts** | Chen et al. 2022 *PoT Prompting* | Math → esecuzione deterministica |
-| **Conservative fallback** | Design patterns from tool-use lit. | No tool match → fallback a RAG |
+| **Chain-of-Thought prompting** | Wei et al. 2022 *Prompting CoT* | Valutato sperimentalmente; non usato come default operativo per latenza su Maths |
+| **ReAct: Reasoning + Acting** | Yao et al. 2022 | Il modello propone un'azione, Python valida schema/guard ed esegue |
+| **Structured tool calls** | Schick et al. 2023 *Toolformer* | Tool call JSON con schema validation e rejection reasons |
+| **Program of Thoughts** | Chen et al. 2022 *PoT Prompting* | Math → calcolo deterministico con Python/SymPy |
+| **Conservative fallback** | Design patterns from tool-use lit. | Nessun tool valido → option-wise/global RAG o fallback diretto |
 
-## Strategie implementate (Notebooks 0-11)
+## Strategie implementate (Notebooks 0-12)
 
 - **Baseline:** API e CSV logging end-to-end
 - **Sparse IR:** TF-IDF, BM25 con varianti (stopword, title-boost)
@@ -261,6 +282,7 @@ Il notebook 11 segue principi consolidati da lavori recenti in NLP e tool-augmen
 - **Agentic tools (v1, Nb 09):** Regex pattern matching → SymPy
 - **Agentic tools (v2, Nb 10):** LLM JSON router/planner in `/no_think` → tool registry → fallback diretto Maths breve in `/no_think`
 - **Router hardening (v3, Nb 11):** parser JSON robusto, fix stop token diretto, planner più corto, theorem rules/statistics rules e tool coverage estesi
+- **Validated tools + option retrieval (v4, Nb 12):** tool call con schema/guard, matching deterministico, rejection reasons e retrieval per opzione
 
 ## Log e analisi
 
@@ -277,7 +299,7 @@ Gli script `project/src/analyze_bm25_results.py` e `project/src/analyze_tfidf_re
 
 ## Valutazione: Metriche e Analisi richieste
 
-Per rispondere alla consegna, il notebook finale (11) deve mostrare:
+Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 
 ### Metriche di base
 - **Accuratezza** per ogni competizione (Entertainment, History, Science, Maths)
@@ -309,7 +331,7 @@ Per rispondere alla consegna, il notebook finale (11) deve mostrare:
 ## Checklist per la consegna (scadenza 2 giugno 2026, 23:00)
 
 ### Notebook Colab (main deliverable)
-- [ ] Usa notebook **11** come base (10 resta baseline di confronto)
+- [ ] Usa notebook **12** come base per nuove prove; conserva 10 e 11 come baseline/ablation
 - [ ] Self-contained: nessuna dependency esterna fuori pip
 - [ ] Colab Secrets per USERNAME/PASSWORD (NO hardcoded credentials)
 - [ ] Google Drive path ben documentato
@@ -318,7 +340,7 @@ Per rispondere alla consegna, il notebook finale (11) deve mostrare:
 - [ ] CSV logs salvati su Drive al termine
 
 ### Analisi e risultati
-- [ ] Summary cell con metriche finali (accuracy, latenza, timeout count)
+- [ ] Summary cell con metriche riassuntive (accuracy, latenza, timeout count)
 - [ ] Tabella comparison: baseline vs retrieval vs RAG vs tool
 - [ ] Grafici: accuracy/competizione, latenza/livello
 - [ ] Almeno 3 esempi di domande risolte correttamente (con evidenza)
@@ -333,10 +355,10 @@ Per rispondere alla consegna, il notebook finale (11) deve mostrare:
 - [ ] Upload su YouTube/Drive (link in WeBeep)
 
 ### Caricamento su WeBeep
-- [ ] Notebook 11 (`.ipynb` o link Drive)
+- [ ] Notebook 12 (`.ipynb` o link Drive al notebook usato)
 - [ ] Breve README di setup (Colab secret names, paths, cose da modificare)
 - [ ] Link video presentazione
-- [ ] CSV finale dei risultati (facoltativo, per referenza)
+- [ ] CSV dei risultati (facoltativo, per referenza)
 
 ## Troubleshooting
 
@@ -344,12 +366,14 @@ Per rispondere alla consegna, il notebook finale (11) deve mostrare:
 | --- | --- |
 | `ModuleNotFoundError: millionaire_client` | Assicura che `api_client/NLP_assignment_api_client` sia in `sys.path` prima di `import` |
 | API unreachable (PoliMi WiFi) | Usa VPN o rete mobile; segnala al docente se persiste |
+| Colab non assegna GPU o quota esaurita | Cambia account/runtime o attendi il reset della quota; prima di caricare Qwen esegui `!nvidia-smi` e verifica che compaia una T4 |
 | CUDA OOM su Colab | Riduci `n_gpu_layers` nel caricamento Qwen (prova 35 invece di -1) oppure passa a Q5_K_L |
-| Timeout su 30s | Aumenta retrieval latency? Riduci TOP_K_RERANK o LLM_CONTEXT_K |
+| `Failed to load model from file` su GGUF | Verifica size/header del file. Il notebook 12 pinna la revision Hugging Face usata dai run riusciti del notebook 11, per evitare re-upload del branch `main` non compatibili con il wheel `llama-cpp-python` installato |
+| Timeout su 30s | Riduci `TOP_K_RERANK`, `LLM_CONTEXT_K` o disabilita fallback LLM non essenziali |
 | CSV parse error in logging | Assicura que `json.dumps(..., ensure_ascii=False)` per testo UTF-8 |
 | Dense index missing su Drive | Esegui notebook 07 (build_dense_embeddings) o scarica da backup |
-| LLM output non parseable | Notebook 11 usa estrazione del primo JSON bilanciato; resta fallback `option_id_from_text` → prima opzione |
-| Maths fallback troppo verboso o lento | Notebook 11 usa `/no_think`, `MATH_DIRECT_MAX_NEW_TOKENS` basso e `stop=['<|im_end|>']` per non troncare alla prima newline |
+| LLM output non parseable | Notebook 12 valida JSON e tool call; se il tool viene scartato, salva il motivo e passa a fallback controllati |
+| Maths fallback troppo verboso o lento | Notebook 12 prova prima tool deterministici validati e usa Qwen diretto solo come fallback |
 
 ## Risorse utili
 
@@ -368,5 +392,5 @@ Per rispondere alla consegna, il notebook finale (11) deve mostrare:
 
 ---
 
-**Ultimo aggiornamento locale:** Notebook 11 router-hardened Maths  
+**Aggiornamento locale:** aggiunto Notebook 12 con validated tools e option-wise retrieval  
 **Team:** NeuroniNegroni (Tommaso, Giulia, Gio)
