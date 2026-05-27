@@ -4,11 +4,12 @@
 
 Chatbot che gioca a **Who Wants to Be a PoliMillionaire?** usando solo modelli open-weights eseguiti localmente. Il sistema combina retrieval augmented generation (RAG), ranking lessicale/neurale, tool-augmented reasoning per matematica e fallback robusti—tutto entro il vincolo di 30 secondi per domanda.
 
-**Stack consigliato (Notebook 12 V3):**
+**Stack consigliato (Notebook 12 V4):**
 - 📚 Retrieval: SimpleWiki + KELM (BM25 + Dense HNSW) + option-wise evidence retrieval
 - 🔀 Fusione: Reciprocal Rank Fusion su 4 indici
 - 🧠 Reranking: Cross-encoder BERT (CPU)
 - 🧮 Math: deterministic router + analysis-first JSON router + validated generic tools estesi + SymPy + Micro-CoT fallback vincolato
+- 📰 News: retrieval live multi-sorgente (Google News RSS US+UK + Tavily in parallelo), article ranking per keyword overlap, prompt headline-aware e answering Chain-of-Thought
 - 🤖 LLM: Qwen3.5-9B (Q6_K_L GGUF via llama-cpp-python)
 - 🎯 Output constraints: GBNF per option id finale, JSON schema constraint per router Maths e regex robusta su `FINAL_CHOICE`
 - 📊 Logging: CSV con latenza, strategia, evidenza, confidence, tool traces, rejection reasons e correttezza
@@ -30,12 +31,12 @@ La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/Grou
 
 ## Quick Start (Colab)
 
-**Per usare il notebook 12 V3 in Colab:**
+**Per usare il notebook 12 V4 in Colab:**
 
-1. Copia il notebook 12 V3 su Google Drive:
+1. Copia il notebook 12 V4 su Google Drive:
    ```text
    MyDrive/nlp26/
-   ├── notebooks/12_V3_validated_tools_option_retrieval.ipynb
+   ├── notebooks/12_V4_validated_tools_option_retrieval.ipynb
    ├── api_client/NLP_assignment_api_client/
    ├── src/*.py
    └── indexes/simplewiki*.joblib, kelm*.joblib, *dense*.index, *dense*meta.joblib
@@ -45,8 +46,9 @@ La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/Grou
    - `HF_TOKEN`: token Hugging Face per scaricare Qwen3.5-9B
    - `USERNAME`: account PoliMillionaire
    - `PASSWORD`: password
+   - `TAVILY_API_KEY`: API key Tavily (free tier) per il retrieval news
 
-3. Apri il notebook 12 V3 in Colab e esegui le sezioni:
+3. Apri il notebook 12 V4 in Colab e esegui le sezioni:
    - Sezioni 1-7: setup dipendenze, GPU, paths
    - Sezioni 8-9: carica retrieval stack, reranker e option-wise retrieval
    - Sezioni 10-13: carica tool validati, policy di routing, test e API loop
@@ -89,6 +91,22 @@ Option ID → API → Logging CSV
 - **Option-wise retrieval:** per ogni opzione costruisce una query dedicata, recupera evidenza e salva score/margine nei log.
 - **Math tools:** calculator, equation solver, modular arithmetic, independent-trials probability, binomial/proportion tests, normal utilities, permutation max order, finite abelian group count, combinatorics, geometry e concept classifier.
 - **LLM fallback:** Qwen3.5-9B (9B params, 7.6 GiB Q6_K_L quantized). La modalità `/no_think` resta attiva per RAG, tool JSON e fallback diretto Maths; l'esperimento `/think` e stato scartato per latenza e output non parsabile.
+
+## News pipeline (V4)
+
+L'analisi degli errori sui log V2 e V4 ha mostrato che i fallimenti nella categoria News non erano dovuti al reasoning del modello ma al **retrieval**: nei casi sbagliati l'articolo corretto non veniva mai recuperato oppure la risposta era contenuta solo nel titolo, mai nel corpo dell'articolo passato al LLM. Le pipeline pensate per SimpleWiki/KELM non coprono notizie recenti, quindi V4 introduce una pipeline verticale dedicata alla categoria News.
+
+**Flusso News end-to-end:**
+
+1. **Query generation con LLM:** il modello, dato question + opzioni, produce una query di ricerca concisa orientata a recuperare la notizia rilevante.
+2. **Fetch parallelo multi-sorgente:**
+   - **Google News RSS** interrogato su regioni `US` e `UK` in parallelo, con decodifica dell'URL di redirect Google News e pulizia HTML del contenuto dell'articolo.
+   - **Tavily** come seconda sorgente indipendente, interrogata in parallelo per aumentare la copertura quando RSS non recupera il documento giusto.
+3. **Article ranking:** gli articoli recuperati sono ordinati per keyword overlap rispetto a question + opzioni, includendo il **titolo** nel testo da cui calcolare l'overlap (così le notizie la cui risposta vive solo nel titolo restano selezionabili). Si tengono i **top 3** articoli.
+4. **Prompt headline-aware:** il prompt finale espone esplicitamente `HEADLINE` + corpo per ciascun articolo, in modo che il modello possa basarsi sul titolo quando il corpo non riporta esplicitamente il fatto.
+5. **Answering Chain-of-Thought:** il modello prima estrae il fatto rilevante dagli articoli e poi sceglie l'opzione. Se dichiara esplicitamente che gli articoli non contengono la risposta, si attiva il **fallback al prompt vincolato** (GBNF su option id) usato anche per le altre categorie.
+
+**Vincoli dell'assignment:** Tavily rispetta i vincoli della consegna — è gratuito (free tier) e restituisce contenuto grezzo non generato, non risposte LLM. Il reasoning resta interamente locale su Qwen3.5-9B.
 
 ## Struttura
 
@@ -182,8 +200,8 @@ I notebook in `project/notebooks/` documentano lo sviluppo progressivo. Scegli i
 | **10** | Agentic math tools | Come 09, math con tool-router JSON + fallback Maths breve in `/no_think` | Baseline agentica, utile per confronto | ✓ |
 | **11** | Router-hardened Maths | Come 10, ma con parser JSON robusto, stop fix, regole deterministic/statistics estese e tool coverage migliore | Ablation per hardening del 10 | ✓ |
 | **12** | Validated tools + option retrieval | Tool layer generico validato, semantic guards, matching deterministico e retrieval per opzione | Baseline V1 da confrontare con V2 | ✓ |
-| **12 V2** | Constrained outputs + adaptive retrieval + Maths fixes | Come 12, ma con GBNF sull'option id finale, router JSON vincolato quando supportato, option-wise adattivo e fix deterministici Maths dai log | Baseline forte per confronto V3 | ✓ |
-| **12 V3** | Analysis-first Maths + extended tools + Micro-CoT fallback | Come V2, ma con tool Maths generici estesi, router JSON con scratchpad non validato e fallback Maths con `FINAL_CHOICE` vincolato | Punto di partenza consigliato per nuove prove | ✓ |
+| **12 V2** | Constrained outputs + adaptive retrieval + Maths fixes | Come 12, ma con GBNF sull'option id finale, router JSON vincolato quando supportato, option-wise adattivo e fix deterministici Maths dai log | Baseline forte per confronto V4 | ✓ |
+| **12 V4** | Analysis-first Maths + extended tools + Micro-CoT fallback | Come V2, ma con tool Maths generici estesi, router JSON con scratchpad non validato e fallback Maths con `FINAL_CHOICE` vincolato | Punto di partenza consigliato per nuove prove | ✓ |
 
 ### Problemi osservati nei notebook 10 e 11
 
@@ -223,9 +241,9 @@ Il notebook `project/notebooks/12_V2_validated_tools_option_retrieval.ipynb` man
 - **Confidence piu conservativa:** la confidence option-wise viene limitata quando il margine tra opzioni e piccolo, evitando stime troppo ottimistiche.
 - **Log separato:** il V2 salva in `logs/run_qwen35_gguf_validated_tools_option_retrieval_v2.csv`, cosi il confronto con il 12 resta pulito.
 
-### Notebook 12 V3: debolezze V2 e aggiunte
+### Notebook 12 V4: debolezze V2 e aggiunte
 
-Il notebook `project/notebooks/12_V3_validated_tools_option_retrieval.ipynb` parte dal V2 e interviene sui fallimenti Maths osservati nei log V2, senza cambiare reranker o retrieval stack per non confondere gli esperimenti.
+Il notebook `project/notebooks/12_V4_validated_tools_option_retrieval.ipynb` parte dal V2 e interviene sui fallimenti Maths osservati nei log V2, senza cambiare reranker o retrieval stack per non confondere gli esperimenti.
 
 Debolezze rimaste nel V2:
 
@@ -234,15 +252,15 @@ Debolezze rimaste nel V2:
 - **Tool generici incompleti:** mancavano operazioni concrete come distanza da origine dopo movimenti cardinali, code/cumulative binomiali e normali, e piccoli sistemi di equazioni.
 - **Diagnostica Maths migliorabile:** serviva una traccia piu chiara del motivo per cui un tool e stato accettato/scartato o di come ha calcolato il risultato.
 
-Aggiunte del V3:
+Aggiunte del V4:
 
 - **Tool Maths estesi:** `math_geometry` supporta `distance_from_origin`/cammini cardinali, `math_binomial_probability` supporta `at_most`, `at_least` e tail probability, `math_normal_distribution` supporta code upper/lower, e `math_solve_equation` accetta anche piccoli sistemi.
 - **Router JSON analysis-first:** lo schema del router aggiunge `mathematical_analysis` prima di `tool_name` e `arguments`. Il campo serve solo come scratchpad del modello: la validazione Python continua a usare solo tool e argomenti.
 - **Micro-CoT fallback per Maths:** il fallback diretto Maths non usa piu solo il digit secco; genera poche righe vincolate e termina con `FINAL_CHOICE: <0-3>`, estratto con regex robusta. Il limite e `MATH_MICRO_COT_MAX_TOKENS = 160` per ridurre il rischio di troncamento.
-- **Smoke test deterministici:** una cella V3 testa i tool Python prima dell'API loop, cosi gli errori di parsing/SymPy/SciPy emergono prima di spendere chiamate di gioco.
-- **Log separato:** il V3 salva in `logs/run_qwen35_gguf_validated_tools_option_retrieval_v3.csv`, mantenendo confrontabili V1, V2 e V3.
+- **Smoke test deterministici:** una cella V4 testa i tool Python prima dell'API loop, cosi gli errori di parsing/SymPy/SciPy emergono prima di spendere chiamate di gioco.
+- **Log separato:** il V4 salva in `logs/run_qwen35_gguf_validated_tools_option_retrieval_v4.csv`, mantenendo confrontabili V1, V2 e V4.
 
-**Raccomandazione:** per nuove prove parti dal **notebook 12 V3**; tieni **12 V2**, **12**, **11** e **10** come baseline/ablation per mostrare il percorso di miglioramento.
+**Raccomandazione:** per nuove prove parti dal **notebook 12 V4**; tieni **12 V2**, **12**, **11** e **10** come baseline/ablation per mostrare il percorso di miglioramento.
 
 ## Costruire corpus e indici
 
@@ -299,11 +317,11 @@ Se `python` non punta all'ambiente corretto:
   -PythonPrefixArgs @('run', '-n', 'polimillionaire', 'python')
 ```
 
-I file prodotti sono `*_200w_dense_hnsw.index` e `*_200w_dense_meta.joblib` in `data/indexes/`. Per usare il notebook 12 V3 in Colab, copiarli anche in `/content/drive/MyDrive/nlp26/indexes`.
+I file prodotti sono `*_200w_dense_hnsw.index` e `*_200w_dense_meta.joblib` in `data/indexes/`. Per usare il notebook 12 V4 in Colab, copiarli anche in `/content/drive/MyDrive/nlp26/indexes`.
 
 ## State-of-the-Art: Ricerca scientifica che supporta il design
 
-Il notebook 12 V3 applica principi consolidati da lavori recenti in NLP e tool-augmented reasoning:
+Il notebook 12 V4 applica principi consolidati da lavori recenti in NLP e tool-augmented reasoning:
 
 | Principio | Riferimento | Applicazione |
 | --- | --- | --- |
@@ -314,7 +332,7 @@ Il notebook 12 V3 applica principi consolidati da lavori recenti in NLP e tool-a
 | **Program of Thoughts** | Chen et al. 2022 *PoT Prompting* | Math → calcolo deterministico con Python/SymPy |
 | **Conservative fallback** | Design patterns from tool-use lit. | Nessun tool valido → option-wise/global RAG o fallback diretto |
 
-## Strategie implementate (Notebooks 0-12 V3)
+## Strategie implementate (Notebooks 0-12 V4)
 
 - **Baseline:** API e CSV logging end-to-end
 - **Sparse IR:** TF-IDF, BM25 con varianti (stopword, title-boost)
@@ -327,7 +345,7 @@ Il notebook 12 V3 applica principi consolidati da lavori recenti in NLP e tool-a
 - **Router hardening (v3, Nb 11):** parser JSON robusto, fix stop token diretto, planner più corto, theorem rules/statistics rules e tool coverage estesi
 - **Validated tools + option retrieval (v4, Nb 12):** tool call con schema/guard, matching deterministico, rejection reasons e retrieval per opzione
 - **Constrained outputs + adaptive retrieval (v5, Nb 12 V2):** GBNF su risposta finale, router JSON vincolato quando supportato, option-wise adattivo e fix Maths dai log
-- **Analysis-first Maths (v6, Nb 12 V3):** router Maths con scratchpad JSON, tool generici estesi, Micro-CoT fallback vincolato e smoke test deterministici
+- **Analysis-first Maths (v6, Nb 12 V4):** router Maths con scratchpad JSON, tool generici estesi, Micro-CoT fallback vincolato e smoke test deterministici
 
 ## Log e analisi
 
@@ -347,11 +365,22 @@ Gli script `project/src/analyze_bm25_results.py` e `project/src/analyze_tfidf_re
 Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 
 ### Metriche di base
-- **Accuratezza** per ogni competizione (Entertainment, History, Science, Maths)
+- **Accuratezza** per ogni competizione (Entertainment, History, Science, Maths, News, Philosophy)
 - **Livello medio raggiunto** per category
 - **Latenza media** e **max latenza** per domanda
 - **Numero timeout** (risposte oltre 30s)
 - **Earned amount** medio per sessione
+
+### Risultati per categoria (best earning sulla leaderboard)
+
+| Categoria | Best earning |
+| --- | --- |
+| Philosophy | $1,024,000 |
+| Science | $1,024,000 |
+| History | $1,024,000 |
+| News | $1,024,000 |
+| Maths | $8,000 |
+| Entertainment | $4,000 |
 
 ### Analisi comparativa
 - Baseline (first option) vs retrieval-only vs RAG vs tool-augmented
@@ -376,7 +405,7 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 ## Checklist per la consegna (scadenza 2 giugno 2026, 23:00)
 
 ### Notebook Colab (main deliverable)
-- [ ] Usa notebook **12 V3** come base per nuove prove; conserva 12 V2, 12, 11 e 10 come baseline/ablation
+- [ ] Usa notebook **12 V4** come base per nuove prove; conserva 12 V2, 12, 11 e 10 come baseline/ablation
 - [ ] Self-contained: nessuna dependency esterna fuori pip
 - [ ] Colab Secrets per USERNAME/PASSWORD (NO hardcoded credentials)
 - [ ] Google Drive path ben documentato
@@ -400,7 +429,7 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 - [ ] Upload su YouTube/Drive (link in WeBeep)
 
 ### Caricamento su WeBeep
-- [ ] Notebook 12 V3 (`.ipynb` o link Drive al notebook usato)
+- [ ] Notebook 12 V4 (`.ipynb` o link Drive al notebook usato)
 - [ ] Breve README di setup (Colab secret names, paths, cose da modificare)
 - [ ] Link video presentazione
 - [ ] CSV dei risultati (facoltativo, per referenza)
@@ -413,12 +442,12 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 | API unreachable (PoliMi WiFi) | Usa VPN o rete mobile; segnala al docente se persiste |
 | Colab non assegna GPU o quota esaurita | Cambia account/runtime o attendi il reset della quota; prima di caricare Qwen esegui `!nvidia-smi` e verifica che compaia una T4 |
 | CUDA OOM su Colab | Riduci `n_gpu_layers` nel caricamento Qwen (prova 35 invece di -1) oppure passa a Q5_K_L |
-| `Failed to load model from file` su GGUF | Verifica size/header del file. Il notebook 12 V3 mantiene la revision Hugging Face gia usata nei run riusciti, per evitare re-upload del branch `main` non compatibili con il wheel `llama-cpp-python` installato |
+| `Failed to load model from file` su GGUF | Verifica size/header del file. Il notebook 12 V4 mantiene la revision Hugging Face gia usata nei run riusciti, per evitare re-upload del branch `main` non compatibili con il wheel `llama-cpp-python` installato |
 | Timeout su 30s | Riduci `TOP_K_RERANK`, `LLM_CONTEXT_K` o disabilita fallback LLM non essenziali |
 | CSV parse error in logging | Assicura que `json.dumps(..., ensure_ascii=False)` per testo UTF-8 |
 | Dense index missing su Drive | Esegui notebook 07 (build_dense_embeddings) o scarica da backup |
-| LLM output non parseable | Notebook 12 V3 usa GBNF per l'option id finale e valida JSON/tool call; se un vincolo runtime non e supportato, passa a fallback controllati e tracciati |
-| Maths fallback troppo verboso o lento | Notebook 12 V3 prova prima tool deterministici validati, usa router JSON analysis-first quando disponibile e limita il fallback diretto con Micro-CoT vincolato |
+| LLM output non parseable | Notebook 12 V4 usa GBNF per l'option id finale e valida JSON/tool call; se un vincolo runtime non e supportato, passa a fallback controllati e tracciati |
+| Maths fallback troppo verboso o lento | Notebook 12 V4 prova prima tool deterministici validati, usa router JSON analysis-first quando disponibile e limita il fallback diretto con Micro-CoT vincolato |
 
 ## Risorse utili
 
@@ -437,5 +466,5 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 
 ---
 
-**Aggiornamento locale:** aggiunto Notebook 12 V3 con analysis-first Maths router, tool estesi, Micro-CoT vincolato e log V3  
+**Aggiornamento locale:** aggiunto Notebook 12 V4 con analysis-first Maths router, tool estesi, Micro-CoT vincolato e log V4  
 **Team:** NeuroniNegroni (Tommaso, Giulia, Gio)
