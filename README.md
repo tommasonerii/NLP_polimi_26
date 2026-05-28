@@ -396,6 +396,8 @@ Correzioni introdotte:
 - **Answer model Q8:** usa `Qwen_Qwen3.5-9B-Q8_0.gguf`; con piu GPU visibili il loader llama.cpp prova `tensor_split`.
 - **Reranker forte:** sostituisce il MiniLM cross-encoder con `Qwen/Qwen3-Reranker-0.6B`, mantenendo batch e max length configurabili. Su Kaggle 2xT4 il reranker viene caricato su `cuda:1`, lasciando `cuda:0` al GGUF e alla GPU principale llama.cpp.
 - **External-first per News:** Google News RSS e Tavily diventano la sorgente primaria quando producono documenti. Il local RAG viene usato solo se non ci sono risultati esterni usabili.
+- **News low-evidence retry:** se il primo fetch News produce solo RSS, meno di 3 documenti o meno di 4 chunk, V6 rilancia un secondo fetch usando anche il testo delle opzioni nella query.
+- **News option-wise fallback:** se il Chain-of-Thought News non restituisce una scelta affidabile, V6 interroga l'indice BM25S esterno per ogni opzione prima del fallback local/RAG.
 - **External-first per Wikipedia categories:** Entertainment e Ancient History/Politics usano Wikipedia API come sorgente primaria quando disponibile.
 - **Fetch piu ampio:** il sistema recupera piu testo grezzo per pagina/articolo, poi lo filtra con BM25S invece di tagliarlo subito.
 - **Indice temporaneo per domanda:** `ExternalEphemeralBM25S` indicizza chunk dei documenti esterni in RAM, senza persistenza su disco.
@@ -619,5 +621,5 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 
 ---
 
-**Aggiornamento locale:** aggiunto Notebook V5-Kaggle con unified retrieval multi-sorgente, answer-first micro-reasoning e Entertainment a $1,024,000. Notebook 12 V6 aggiornato con Qwen3-Reranker-0.6B e Q8_0 GGUF
+**Aggiornamento locale:** aggiunto Notebook V5-Kaggle con unified retrieval multi-sorgente, answer-first micro-reasoning e Entertainment a $1,024,000. Notebook 12 V6 aggiornato con Qwen3-Reranker-0.6B, Q8_0 GGUF, retry News su evidenza povera, fallback option-wise esterno per News e `PROMPT_VERSION` V6 coerente.
 **Team:** NeuroniNegroni (Tommaso, Giulia, Gio)
