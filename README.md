@@ -398,6 +398,7 @@ Correzioni introdotte:
 - **External-first per News:** Google News RSS e Tavily diventano la sorgente primaria quando producono documenti. Il local RAG viene usato solo se non ci sono risultati esterni usabili.
 - **News low-evidence retry:** se il primo fetch News produce solo RSS, meno di 3 documenti o meno di 4 chunk, V6 rilancia un secondo fetch usando anche il testo delle opzioni nella query.
 - **News option-wise fallback:** se il Chain-of-Thought News non restituisce una scelta affidabile, V6 interroga l'indice BM25S esterno per ogni opzione prima del fallback local/RAG.
+- **Runner per categoria:** in fondo al notebook ci sono celle separate per setup client e per Ancient History and Politics, Entertainment, Maths, News, Philosophy and Psychology, Science and Nature; per smoke test su tutte usare `SELECTED_ATTEMPTS = 1`.
 - **External-first per Wikipedia categories:** Entertainment e Ancient History/Politics usano Wikipedia API come sorgente primaria quando disponibile.
 - **Fetch piu ampio:** il sistema recupera piu testo grezzo per pagina/articolo, poi lo filtra con BM25S invece di tagliarlo subito.
 - **Indice temporaneo per domanda:** `ExternalEphemeralBM25S` indicizza chunk dei documenti esterni in RAM, senza persistenza su disco.
