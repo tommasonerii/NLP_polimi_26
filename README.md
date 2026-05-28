@@ -197,6 +197,41 @@ Il log V6 viene salvato in:
 logs/run_qwen35_q8_qwen3reranker06b_external_bm25s_v6.csv
 ```
 
+## Knowledge pipeline — Unified retrieval + answer-first micro-reasoning (V5-Kaggle)
+
+Il notebook `v5-kaggle.ipynb` introduce una pipeline alternativa per le categorie knowledge (Entertainment, History, Science, Philosophy), sviluppata in parallelo al V6. Gira su Kaggle con T4 singola, usa Qwen3.5-9B Q6_K_L e il cross-encoder MiniLM originale.
+
+L'analisi degli errori sulla categoria Entertainment ha rivelato due problemi nel design precedente:
+
+**Problema 1: option-wise retrieval controproducente.** Il retrieval per-opzione (4 query aggiuntive per domanda) produceva margini quasi zero quando il corpus non conteneva il fatto cercato. In questi casi il segnale era rumore e peggiorava la decisione rispetto al solo giudizio del modello. V5-Kaggle elimina completamente l'option-wise retrieval per le categorie knowledge.
+
+**Problema 2: il modello ragionava correttamente ma non riusciva a scrivere la risposta.** Un primo tentativo di aggiungere Chain-of-Thought con tag `<think>` e 512 token di budget causava troncamento sistematico: il modello scriveva ~650 token di analisi e non raggiungeva mai il tag `ANSWER:`. 9 errori su 10 erano troncamento, non ragionamento sbagliato. L'accuracy è crollata dal 80% al 44%.
+
+**Soluzione: answer-first micro-reasoning.** Il prompt forza il modello a emettere il digit di risposta come primo token, poi una breve giustificazione. Se il modello viene troncato, la risposta è comunque disponibile. Budget: 300 token → ~10s di generazione + ~8s retrieval = ~18s totale, dentro il limite di 30s.
+
+**Pipeline V5-Kaggle per Entertainment/History/Science/Philosophy:**
+
+```
+Question + Opzioni
+    ↓
+[Retrieval unificato multi-sorgente]
+  ├─ Indici locali: SimpleWiki + KELM (BM25 + Dense) → RRF → top-5
+  ├─ Wikipedia API: query generata dall'LLM → extract + chunk rilevanti
+  └─ Tavily API: ricerca general → contenuto raw
+    ↓
+[Rerank unificato] Cross-encoder su TUTTI i documenti (locali + esterni)
+  → filtra per soglia di qualità (reranker score > -2.0) → top-6 documenti
+    ↓
+[Prompt answer-first] Il modello vede l'evidenza e risponde:
+  "ANSWER: X\nREASON: one sentence why"
+    ↓
+[Parser] Prende il primo digit 0-3 → option id
+```
+
+**Risultati:** Entertainment è passato da $4,000 a **$1,024,000**, con accuracy dell'84.7% su 59 domande e una partita perfetta 15/15. La latenza media è 16-17s.
+
+Le pipeline Math e News restano invariate rispetto a V4.
+
 ## Struttura
 
 ```text
@@ -292,6 +327,7 @@ I notebook in `project/notebooks/` documentano lo sviluppo progressivo. Scegli i
 | **12 V2** | Constrained outputs + adaptive retrieval + Maths fixes | Come 12, ma con GBNF sull'option id finale, router JSON vincolato quando supportato, option-wise adattivo e fix deterministici Maths dai log | Baseline forte per confronto V4 | ✓ |
 | **12 V4** | Analysis-first Maths + extended tools + Micro-CoT fallback | Come V2, ma con tool Maths generici estesi, router JSON con scratchpad non validato e fallback Maths con `FINAL_CHOICE` vincolato | Baseline forte pre-V6 | ✓ |
 | **12 V6** | External BM25S + Qwen3 reranker | Come V4, ma con setup Kaggle/Colab da V5, Qwen3.5-9B Q8, `Qwen3-Reranker-0.6B`, News/Wikipedia external-primary, indice BM25S temporaneo e local RAG solo come fallback | Notebook consigliato per i run finali | ✓ |
+| **V5-Kaggle** | Unified retrieval + micro-reasoning | Notebook parallelo su Kaggle T4: elimina option-wise retrieval, unifica retrieval locale+Wikipedia+Tavily con rerank unico, e usa answer-first micro-reasoning. Math e News invariati da V4 | Alternativa per knowledge categories su single-GPU | ✓ |
 
 ### Problemi osservati nei notebook 10 e 11
 
@@ -457,6 +493,7 @@ Il notebook 12 V6 applica principi consolidati da lavori recenti in NLP e tool-a
 - **Constrained outputs + adaptive retrieval (v5, Nb 12 V2):** GBNF su risposta finale, router JSON vincolato quando supportato, option-wise adattivo e fix Maths dai log
 - **Analysis-first Maths (v6, Nb 12 V4):** router Maths con scratchpad JSON, tool generici estesi, Micro-CoT fallback vincolato e smoke test deterministici
 - **External ephemeral retrieval (Nb 12 V6):** setup Kaggle/Colab da V5, Q8 GGUF, Qwen3 reranker, Wikipedia/News external-first, BM25S temporaneo per domanda e option-wise retrieval su chunk esterni
+- **Unified retrieval + answer-first micro-reasoning (Nb V5-Kaggle):** retrieval multi-sorgente unificato (local + Wikipedia + Tavily), rerank cross-encoder su pool unico con soglia di qualità, eliminazione option-wise retrieval, answer-first micro-reasoning con budget 300 token. Entertainment raggiunge $1,024,000
 
 ## Log e analisi
 
@@ -486,12 +523,12 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 
 | Categoria | Best earning |
 | --- | --- |
+| Entertainment | $1,024,000 |
 | Philosophy | $1,024,000 |
 | Science | $1,024,000 |
 | History | $1,024,000 |
 | News | $1,024,000 |
 | Maths | $8,000 |
-| Entertainment | $4,000 |
 
 ### Analisi comparativa
 - Baseline (first option) vs retrieval-only vs RAG vs tool-augmented
@@ -582,5 +619,5 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 
 ---
 
-**Aggiornamento locale:** Notebook 12 V6 riscritto in-place con setup Kaggle/Colab da V5, Qwen3.5-9B Q8, `Qwen/Qwen3-Reranker-0.6B`, external-primary retrieval, BM25S temporaneo per domanda, option-wise external evidence e log V6 aggiornato  
+**Aggiornamento locale:** aggiunto Notebook V5-Kaggle con unified retrieval multi-sorgente, answer-first micro-reasoning e Entertainment a $1,024,000. Notebook 12 V6 aggiornato con Qwen3-Reranker-0.6B e Q8_0 GGUF
 **Team:** NeuroniNegroni (Tommaso, Giulia, Gio)
