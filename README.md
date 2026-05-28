@@ -7,11 +7,11 @@ Chatbot che gioca a **Who Wants to Be a PoliMillionaire?** usando solo modelli o
 **Stack consigliato (Notebook 12 V6):**
 - 📚 Retrieval: SimpleWiki + KELM (BM25 + Dense HNSW) + option-wise evidence retrieval + indice BM25S temporaneo per fonti esterne
 - 🔀 Fusione: Reciprocal Rank Fusion su 4 indici
-- 🧠 Reranking: Cross-encoder BERT (CPU)
+- 🧠 Reranking: `Qwen/Qwen3-Reranker-0.6B` via `sentence-transformers` CrossEncoder, su `cuda:1` quando sono disponibili 2 GPU
 - 🧮 Math: deterministic router + analysis-first JSON router + validated generic tools estesi + SymPy + Micro-CoT fallback vincolato
 - 🌐 External retrieval: Wikipedia API e News/Tavily/RSS come fonti primarie per categorie dove il corpus locale e debole o obsoleto
 - 📰 News: retrieval live multi-sorgente (Google News RSS US+UK + Tavily in parallelo), indicizzazione BM25S temporanea, prompt headline-aware e answering Chain-of-Thought
-- 🤖 LLM: Qwen3.5-9B (Q6_K_L GGUF via llama-cpp-python)
+- 🤖 LLM: Qwen3.5-9B (`Q8_0` GGUF via llama-cpp-python), con `tensor_split` quando sono visibili piu GPU
 - 🎯 Output constraints: GBNF per option id finale, JSON schema constraint per router Maths e regex robusta su `FINAL_CHOICE`
 - 📊 Logging: CSV con latenza, strategia, evidenza, confidence, tool traces, rejection reasons, modalita retrieval, conteggi external docs/chunks e correttezza
 
@@ -97,10 +97,10 @@ Option ID → API → Logging CSV
 - **Indici:** SimpleWiki (434k docs, 160w), KELM (500k asserzioni corte), libri di matematica (PDF → chunks)
 - **Retrieval:** BM25 (sparse, veloce) + embedding densi (HNSW, accurato)
 - **External BM25S temporaneo:** per News/Wikipedia indicizza solo i documenti recuperati live nella domanda corrente; non salva niente su disco e non mescola di default fonti esterne con SimpleWiki/KELM.
-- **Reranking:** Cross-encoder MiniLM per riordinamento top-K
+- **Reranking:** `Qwen/Qwen3-Reranker-0.6B` riordina sia i candidati locali sia i chunk esterni prodotti dall'indice BM25S temporaneo.
 - **Option-wise retrieval:** per ogni opzione costruisce una query dedicata, recupera evidenza e salva score/margine nei log.
 - **Math tools:** calculator, equation solver, modular arithmetic, independent-trials probability, binomial/proportion tests, normal utilities, permutation max order, finite abelian group count, combinatorics, geometry e concept classifier.
-- **LLM fallback:** Qwen3.5-9B (9B params, 7.6 GiB Q6_K_L quantized). La modalità `/no_think` resta attiva per RAG, tool JSON e fallback diretto Maths; l'esperimento `/think` e stato scartato per latenza e output non parsabile.
+- **LLM fallback:** Qwen3.5-9B `Q8_0` GGUF. La modalità `/no_think` resta attiva per RAG, tool JSON e fallback diretto Maths; l'esperimento `/think` e stato scartato per latenza e output non parsabile.
 
 ## News pipeline (V4)
 
@@ -133,12 +133,12 @@ V6 usa quindi questa policy:
 ```text
 News:
   fetch Google News RSS + Tavily
-  se external docs validi -> BM25S temporaneo -> prompt solo external
+  se external docs validi -> BM25S temporaneo -> Qwen3 rerank -> prompt solo external
   altrimenti -> fallback local RAG
 
 Entertainment / Ancient History and Politics:
   fetch Wikipedia API
-  se external docs validi -> BM25S temporaneo + option-wise evidence
+  se external docs validi -> BM25S temporaneo -> Qwen3 rerank + option-wise evidence
   altrimenti -> fallback local RAG
 
 Altre categorie:
@@ -150,15 +150,16 @@ Altre categorie:
 Per ogni domanda, V6 costruisce un indice in RAM sui soli documenti esterni appena recuperati:
 
 1. Fetch piu ampio dei dati grezzi:
-   - Wikipedia extract fino a circa `12000` caratteri;
+   - Wikipedia extract fino a circa `14000` caratteri;
    - Google News fino a piu articoli e circa `8000` caratteri per articolo;
    - Tavily fino a piu risultati raw.
 2. Chunking dei testi in finestre sovrapposte.
 3. Boost del titolo nel testo indicizzato, soprattutto per News, dove la risposta e spesso nel titolo.
 4. Costruzione di `ExternalEphemeralBM25S`.
 5. Retrieval globale con la sola domanda.
-6. Retrieval option-wise con query `question + option_text`.
-7. Prompt finale con pochi chunk selezionati, non con tutto il testo recuperato.
+ 6. Reranking dei candidati BM25S con `Qwen/Qwen3-Reranker-0.6B`.
+ 7. Retrieval option-wise con query `question + option_text`, stesso indice temporaneo e reranker.
+ 8. Prompt finale con pochi chunk selezionati, non con tutto il testo recuperato.
 
 Questo mantiene alto il recall dei fallback esterni senza aumentare troppo il prompt. Il costo computazionale dell'indice temporaneo e piccolo rispetto a HTTP fetch, reranking e inferenza Qwen; il vincolo principale resta evitare troppe chiamate esterne, non indicizzare troppi chunk.
 
@@ -186,11 +187,14 @@ Nuovi campi diagnostici nel CSV V6:
 - `external_sources`
 - `external_index_error`
 - `external_fetch_error`
+- `reranker_model`
+- `reranker_max_length`
+- `reranker_batch_size`
 
 Il log V6 viene salvato in:
 
 ```text
-logs/run_qwen35_gguf_external_bm25s_v6.csv
+logs/run_qwen35_q8_qwen3reranker06b_external_bm25s_v6.csv
 ```
 
 ## Struttura
@@ -287,7 +291,7 @@ I notebook in `project/notebooks/` documentano lo sviluppo progressivo. Scegli i
 | **12** | Validated tools + option retrieval | Tool layer generico validato, semantic guards, matching deterministico e retrieval per opzione | Baseline V1 da confrontare con V2 | ✓ |
 | **12 V2** | Constrained outputs + adaptive retrieval + Maths fixes | Come 12, ma con GBNF sull'option id finale, router JSON vincolato quando supportato, option-wise adattivo e fix deterministici Maths dai log | Baseline forte per confronto V4 | ✓ |
 | **12 V4** | Analysis-first Maths + extended tools + Micro-CoT fallback | Come V2, ma con tool Maths generici estesi, router JSON con scratchpad non validato e fallback Maths con `FINAL_CHOICE` vincolato | Baseline forte pre-V6 | ✓ |
-| **12 V6** | External ephemeral BM25S retrieval | Come V4, ma News/Wikipedia diventano external-primary: fetch piu ampio, indice BM25S temporaneo per domanda, option-wise su external chunks e local RAG solo come fallback | Notebook consigliato per i run finali | ✓ |
+| **12 V6** | External BM25S + Qwen3 reranker | Come V4, ma con setup Kaggle/Colab da V5, Qwen3.5-9B Q8, `Qwen3-Reranker-0.6B`, News/Wikipedia external-primary, indice BM25S temporaneo e local RAG solo come fallback | Notebook consigliato per i run finali | ✓ |
 
 ### Problemi osservati nei notebook 10 e 11
 
@@ -346,19 +350,22 @@ Aggiunte del V4:
 - **Smoke test deterministici:** una cella V4 testa i tool Python prima dell'API loop, cosi gli errori di parsing/SymPy/SciPy emergono prima di spendere chiamate di gioco.
 - **Log separato:** il V4 salva in `logs/run_qwen35_gguf_validated_tools_option_retrieval_v4.csv`, mantenendo confrontabili V1, V2 e V4.
 
-### Notebook 12 V6: external ephemeral BM25S retrieval
+### Notebook 12 V6: external ephemeral BM25S + Qwen3 reranker
 
-Il notebook `project/notebooks/12_V6_validated_tools_option_retrieval.ipynb` parte da V4 e cambia la gestione dei fallback esterni. Invece di concatenare Wikipedia/News ai risultati locali, costruisce un indice BM25S temporaneo sui documenti esterni recuperati per la domanda corrente.
+Il notebook `project/notebooks/12_V6_validated_tools_option_retrieval.ipynb` parte da V4, riprende la logica Kaggle/Colab del notebook V5 e cambia la gestione dei fallback esterni. Invece di concatenare Wikipedia/News ai risultati locali, costruisce un indice BM25S temporaneo sui documenti esterni recuperati per la domanda corrente.
 
 Correzioni introdotte:
 
+- **Setup Kaggle/Colab:** auto-detect dei path Kaggle, fallback Colab/local, secrets per API/HF/Tavily senza credenziali hardcoded.
+- **Answer model Q8:** usa `Qwen_Qwen3.5-9B-Q8_0.gguf`; con piu GPU visibili il loader llama.cpp prova `tensor_split`.
+- **Reranker forte:** sostituisce il MiniLM cross-encoder con `Qwen/Qwen3-Reranker-0.6B`, mantenendo batch e max length configurabili. Su Kaggle 2xT4 il reranker viene caricato su `cuda:1`, lasciando `cuda:0` al GGUF e alla GPU principale llama.cpp.
 - **External-first per News:** Google News RSS e Tavily diventano la sorgente primaria quando producono documenti. Il local RAG viene usato solo se non ci sono risultati esterni usabili.
 - **External-first per Wikipedia categories:** Entertainment e Ancient History/Politics usano Wikipedia API come sorgente primaria quando disponibile.
 - **Fetch piu ampio:** il sistema recupera piu testo grezzo per pagina/articolo, poi lo filtra con BM25S invece di tagliarlo subito.
 - **Indice temporaneo per domanda:** `ExternalEphemeralBM25S` indicizza chunk dei documenti esterni in RAM, senza persistenza su disco.
-- **Option-wise external evidence:** per ogni opzione viene interrogato lo stesso indice temporaneo con `question + option_text`.
+- **Option-wise external evidence:** per ogni opzione viene interrogato lo stesso indice temporaneo con `question + option_text`, poi i candidati vengono riordinati dal reranker.
 - **Niente fusione local/external di default:** se l'external evidence e valida, il prompt usa solo quei chunk. Questo evita che SimpleWiki/KELM introducano match lessicali vecchi o generici.
-- **Logging esteso:** il CSV V6 salva modalita retrieval, numero di documenti esterni, numero di chunk, sorgenti esterne e possibili errori di fetch/index.
+- **Logging esteso:** il CSV V6 salva modalita retrieval, modello reranker, parametri reranker, numero di documenti esterni, numero di chunk, sorgenti esterne e possibili errori di fetch/index.
 
 **Raccomandazione:** per i run finali parti dal **notebook 12 V6**; tieni **12 V4**, **12 V2**, **12**, **11** e **10** come baseline/ablation per mostrare il percorso di miglioramento.
 
@@ -432,6 +439,7 @@ Il notebook 12 V6 applica principi consolidati da lavori recenti in NLP e tool-a
 | **Program of Thoughts** | Chen et al. 2022 *PoT Prompting* | Math → calcolo deterministico con Python/SymPy |
 | **Adaptive retrieval** | Self-RAG / search-augmented QA literature | News/Wikipedia usano external retrieval solo quando la categoria lo richiede; local RAG resta fallback |
 | **Fast lexical retrieval** | BM25S | Indice temporaneo in RAM sui documenti esterni recuperati live |
+| **Strong neural reranking** | Qwen3-Reranker | Cross-encoder 0.6B sui candidati locali e sui chunk BM25S esterni |
 | **Conservative fallback** | Design patterns from tool-use lit. | Nessun tool valido → option-wise/global RAG o fallback diretto |
 
 ## Strategie implementate (Notebooks 0-12 V6)
@@ -441,14 +449,14 @@ Il notebook 12 V6 applica principi consolidati da lavori recenti in NLP e tool-a
 - **Multi-index:** Reciprocal Rank Fusion su piu corpora
 - **KELM retrieval:** Knowledge graph strutturato per fattualita
 - **Dense retrieval:** HNSW embeddings (MiniLM-L6)
-- **Neural reranking:** Cross-encoder BERT (MiniLM-L-6-v2)
+- **Neural reranking:** da MiniLM cross-encoder a `Qwen/Qwen3-Reranker-0.6B` nel notebook V6
 - **Agentic tools (v1, Nb 09):** Regex pattern matching → SymPy
 - **Agentic tools (v2, Nb 10):** LLM JSON router/planner in `/no_think` → tool registry → fallback diretto Maths breve in `/no_think`
 - **Router hardening (v3, Nb 11):** parser JSON robusto, fix stop token diretto, planner più corto, theorem rules/statistics rules e tool coverage estesi
 - **Validated tools + option retrieval (v4, Nb 12):** tool call con schema/guard, matching deterministico, rejection reasons e retrieval per opzione
 - **Constrained outputs + adaptive retrieval (v5, Nb 12 V2):** GBNF su risposta finale, router JSON vincolato quando supportato, option-wise adattivo e fix Maths dai log
 - **Analysis-first Maths (v6, Nb 12 V4):** router Maths con scratchpad JSON, tool generici estesi, Micro-CoT fallback vincolato e smoke test deterministici
-- **External ephemeral retrieval (v7, Nb 12 V6):** Wikipedia/News external-first, fetch piu ampio, BM25S temporaneo per domanda e option-wise retrieval su chunk esterni
+- **External ephemeral retrieval (Nb 12 V6):** setup Kaggle/Colab da V5, Q8 GGUF, Qwen3 reranker, Wikipedia/News external-first, BM25S temporaneo per domanda e option-wise retrieval su chunk esterni
 
 ## Log e analisi
 
@@ -543,8 +551,8 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 | --- | --- |
 | `ModuleNotFoundError: millionaire_client` | Assicura che `api_client/NLP_assignment_api_client` sia in `sys.path` prima di `import` |
 | API unreachable (PoliMi WiFi) | Usa VPN o rete mobile; segnala al docente se persiste |
-| Colab non assegna GPU o quota esaurita | Cambia account/runtime o attendi il reset della quota; prima di caricare Qwen esegui `!nvidia-smi` e verifica che compaia una T4 |
-| CUDA OOM su Colab | Riduci `n_gpu_layers` nel caricamento Qwen (prova 35 invece di -1) oppure passa a Q5_K_L |
+| Colab/Kaggle non assegna GPU o quota esaurita | Cambia account/runtime o attendi il reset della quota; prima di caricare Qwen esegui `!nvidia-smi` e verifica GPU e VRAM disponibili |
+| CUDA OOM su V6 | Prima riduci `RERANKER_BATCH_SIZE`, `RERANKER_MAX_LENGTH` o `LLM_CONTEXT_K`; se non basta riduci `n_gpu_layers` nel caricamento Qwen o passa a una quantizzazione piu leggera |
 | `Failed to load model from file` su GGUF | Verifica size/header del file. Il notebook 12 V6 mantiene la revision Hugging Face gia usata nei run riusciti, per evitare re-upload del branch `main` non compatibili con il wheel `llama-cpp-python` installato |
 | Timeout su 30s | Riduci `TOP_K_RERANK`, `LLM_CONTEXT_K` o disabilita fallback LLM non essenziali |
 | CSV parse error in logging | Assicura que `json.dumps(..., ensure_ascii=False)` per testo UTF-8 |
@@ -570,8 +578,9 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 6. Asai et al. (2023). *Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection.* [[arxiv]](https://arxiv.org/abs/2310.11511)
 7. Vu et al. (2024). *FreshLLMs: Refreshing Large Language Models with Search Engine Augmentation.* ACL Findings. [[paper]](https://aclanthology.org/2024.findings-acl.813/)
 8. Lù (2024). *BM25S: Orders of magnitude faster lexical search via eager sparse scoring.* [[arxiv]](https://arxiv.org/abs/2407.03618)
+9. Qwen Team (2025). *Qwen3 Embedding and Reranker model card.* [[huggingface]](https://huggingface.co/Qwen/Qwen3-Reranker-0.6B)
 
 ---
 
-**Aggiornamento locale:** aggiunto Notebook 12 V6 con external-primary retrieval, BM25S temporaneo per domanda, option-wise external evidence e log V6  
+**Aggiornamento locale:** Notebook 12 V6 riscritto in-place con setup Kaggle/Colab da V5, Qwen3.5-9B Q8, `Qwen/Qwen3-Reranker-0.6B`, external-primary retrieval, BM25S temporaneo per domanda, option-wise external evidence e log V6 aggiornato  
 **Team:** NeuroniNegroni (Tommaso, Giulia, Gio)
