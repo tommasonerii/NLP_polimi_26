@@ -117,6 +117,13 @@ client.user
 client.is_authenticated
 ```
 
+Il modulo `game` supporta due modalita:
+
+```text
+text    # default: domanda e opzioni testuali
+speech  # domanda e opzioni come audio WAV scaricato dal server
+```
+
 ## Competizioni
 
 Per vedere le competizioni disponibili:
@@ -168,6 +175,22 @@ POST /api/game/start
 
 Il risultato e un oggetto `GameSession`.
 
+Per avviare una partita in modalita vocale:
+
+```python
+game = client.game.start(competition_id=comp_id, mode="speech")
+
+print(game.session_id)
+print(game.mode)  # "speech"
+```
+
+Nel body della richiesta il client invia anche `mode`:
+
+```text
+POST /api/game/start
+{"competitionId": 1, "mode": "speech"}
+```
+
 ## Leggere la domanda corrente
 
 ```python
@@ -207,6 +230,65 @@ print(time_left)
 ```
 
 Se si risponde troppo tardi, il server puo restituire timeout anche se l'opzione scelta era corretta.
+
+In modalita `speech`, il timer da 30 secondi parte dopo aver richiesto l'audio dell'ultima opzione. Il flusso corretto e quindi: audio domanda, audio opzioni A-D, refresh dello stato, risposta.
+
+## Modalita speech/audio
+
+La modalita vocale non e uno streaming e non usa MP3. Il client scarica file audio completi via HTTP e ritorna `bytes` grezzi. Le docstring del client indicano WAV, quindi conviene salvarli con estensione `.wav`.
+
+Endpoint usati dal client:
+
+```text
+GET /api/game/{session_id}/audio/question
+GET /api/game/{session_id}/audio/option/next
+GET /api/game/{session_id}/audio/option/{index}
+```
+
+Metodi Python:
+
+```python
+question_audio = game.fetch_audio_question()
+option_a_audio = game.fetch_audio_option_next()
+option_b_audio = game.fetch_audio_option_next()
+option_c_audio = game.fetch_audio_option_next()
+option_d_audio = game.fetch_audio_option_next()
+```
+
+Le opzioni devono essere richieste in sequenza con `fetch_audio_option_next()`: prima A, poi B, C e D. Dopo che una opzione e stata consegnata, puo essere riascoltata con `fetch_audio_option(index)`, dove `index` e `0` per A, `1` per B, `2` per C, `3` per D.
+
+Esempio minimo:
+
+```python
+from pathlib import Path
+
+game = client.game.start(competition_id=comp_id, mode="speech")
+
+out_dir = Path("artifacts/voice_mode")
+out_dir.mkdir(parents=True, exist_ok=True)
+
+(out_dir / "question.wav").write_bytes(game.fetch_audio_question())
+
+option_map = {}
+for i in range(4):
+    letter = chr(65 + i)  # A, B, C, D
+    (out_dir / f"option_{letter}.wav").write_bytes(game.fetch_audio_option_next())
+    option_map[letter] = game.current_question.options[i].id
+
+game.refresh_state()
+print("Time remaining:", game.time_remaining)
+
+answer_letter = "A"
+result = game.answer(option_map[answer_letter])
+```
+
+Smoke test locale:
+
+```powershell
+C:\ProgramData\miniconda3\python.exe project/src/test_client_voice_mode.py --competition-id 0 --options 4 --test-replay --play --leaderboard
+```
+
+Lo script salva i WAV in `artifacts/voice_mode/`. Di default non invia risposte; per inviare una risposta aggiungere `--answer-letter A`.
 
 ## Rispondere
 
@@ -300,10 +382,17 @@ for i, entry in enumerate(lb.entries, 1):
     print(i, entry.username, entry.score, entry.reached_level)
 ```
 
+Per la classifica speech:
+
+```python
+lb = client.leaderboard.get(competition_id=1, limit=10, mode="speech")
+```
+
 Metodo API:
 
 ```text
-GET /api/leaderboard/{competition_id}
+GET /api/leaderboard/{competition_id}?limit=10&mode=text
+GET /api/leaderboard/{competition_id}?limit=10&mode=speech
 ```
 
 Campi principali di una entry:
@@ -368,6 +457,16 @@ retrieved_context
 error_message
 ```
 
+Per run speech aggiungere anche:
+
+```text
+mode
+audio_question_path
+audio_option_paths_json
+audio_fetch_latency_seconds
+time_remaining_after_audio
+```
+
 Esempio:
 
 ```python
@@ -393,6 +492,7 @@ logs.append({
     "earned_amount": result.earned_amount,
     "latency_seconds": latency,
     "time_remaining_before_answer": time_left,
+    "mode": game.mode,
     "strategy_name": "baseline_first_option",
 })
 ```
@@ -401,6 +501,8 @@ logs.append({
 
 - Non fare molte richieste consecutive troppo velocemente: la consegna chiede esplicitamente di evitare carichi eccessivi sul server.
 - Rispondere entro 30 secondi e parte del task: misurare sempre la latenza del modello.
+- In modalita `speech`, misurare separatamente il tempo di fetch audio e la latenza del modello; il timer parte dopo l'ultima opzione audio.
+- L'audio del client e WAV restituito come bytes completi, non streaming; salvarlo su disco prima di riprodurlo o analizzarlo.
 - Usare `option_id` e non il testo quando possibile.
 - Tenere password e token fuori dal notebook condiviso; in Colab usare i secrets.
 - Il notebook consegnato deve spiegare chiaramente modello, prompt, retrieval, valutazione e limiti.

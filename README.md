@@ -307,6 +307,22 @@ competitions = client.competitions.list_all()
 
 Per dettagli su login, partite, risposta, leaderboard e logging vedere [API_README.md](API_README.md).
 
+Il client aggiornato supporta anche la modalita vocale del gioco:
+
+```python
+game = client.game.start(competition_id=comp_id, mode="speech")
+question_audio = game.fetch_audio_question()
+option_a_audio = game.fetch_audio_option_next()
+```
+
+L'audio viene scaricato come bytes WAV completi da endpoint HTTP, non come streaming MP3. Le opzioni audio vanno richieste in sequenza A-D con `fetch_audio_option_next()`; dopo la consegna possono essere riascoltate con `fetch_audio_option(index)`. Il timer della domanda speech parte dopo la richiesta dell'ultima opzione.
+
+Per uno smoke test della modalita speech:
+
+```powershell
+C:\ProgramData\miniconda3\python.exe project/src/test_client_voice_mode.py --competition-id 0 --options 4 --test-replay --play --leaderboard
+```
+
 ## Notebook — Percorso dal prototipo alla produzione
 
 I notebook in `project/notebooks/` documentano lo sviluppo progressivo. Scegli in base al tuo scenario:
