@@ -4,13 +4,13 @@
 
 Chatbot che gioca a **Who Wants to Be a PoliMillionaire?** usando solo modelli open-weights eseguiti localmente. Il sistema combina retrieval augmented generation (RAG), ranking lessicale/neurale, tool-augmented reasoning per matematica e fallback robusti—tutto entro il vincolo di 30 secondi per domanda.
 
-**Stack consigliato (Notebook 12 V6):**
+**Stack consigliato (Notebook 12 V7):**
 - 📚 Retrieval: SimpleWiki + KELM (BM25 + Dense HNSW) + option-wise evidence retrieval + indice BM25S temporaneo per fonti esterne
 - 🔀 Fusione: Reciprocal Rank Fusion su 4 indici
 - 🧠 Reranking: `Qwen/Qwen3-Reranker-0.6B` via `sentence-transformers` CrossEncoder, su `cuda:1` quando sono disponibili 2 GPU
 - 🧮 Math: deterministic router + analysis-first JSON router + validated generic tools estesi + SymPy + Micro-CoT fallback vincolato
-- 🌐 External retrieval: Wikipedia API e News/Tavily/RSS come fonti primarie per categorie dove il corpus locale e debole o obsoleto
-- 📰 News: retrieval live multi-sorgente (Google News RSS US+UK + Tavily in parallelo), indicizzazione BM25S temporanea, prompt headline-aware e answering Chain-of-Thought
+- 🌐 External retrieval: Wikipedia API e News/Tavily/RSS come fonti primarie per categorie dove il corpus locale e debole o obsoleto, con gate semantico sui risultati Wikipedia
+- 📰 News: retrieval live multi-sorgente (Google News RSS US+UK + Tavily in parallelo), indicizzazione BM25S temporanea, prompt headline-aware e regole anti-trappola
 - 🤖 LLM: Qwen3.5-9B (`Q8_0` GGUF via llama-cpp-python), con `tensor_split` quando sono visibili piu GPU
 - 🎯 Output constraints: GBNF per option id finale, JSON schema constraint per router Maths e regex robusta su `FINAL_CHOICE`
 - 📊 Logging: CSV con latenza, strategia, evidenza, confidence, tool traces, rejection reasons, modalita retrieval, conteggi external docs/chunks e correttezza
@@ -32,12 +32,12 @@ La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/Grou
 
 ## Quick Start (Colab)
 
-**Per usare il notebook 12 V6 in Colab:**
+**Per usare il notebook 12 V7 in Colab:**
 
-1. Copia il notebook 12 V6 su Google Drive:
+1. Copia il notebook 12 V7 su Google Drive:
    ```text
    MyDrive/nlp26/
-   ├── notebooks/12_V6_validated_tools_option_retrieval.ipynb
+   ├── notebooks/12_V7_validated_tools_option_retrieval.ipynb
    ├── api_client/NLP_assignment_api_client/
    ├── src/*.py
    └── indexes/simplewiki*.joblib, kelm*.joblib, *dense*.index, *dense*meta.joblib
@@ -49,7 +49,7 @@ La consegna e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/Grou
    - `PASSWORD`: password
    - `TAVILY_API_KEY`: API key Tavily (free tier) per il retrieval news
 
-3. Apri il notebook 12 V6 in Colab e esegui le sezioni:
+3. Apri il notebook 12 V7 in Colab e esegui le sezioni:
    - Sezioni 1-7: setup dipendenze, GPU, paths
    - Sezioni 8-9: carica retrieval stack, reranker e option-wise retrieval
    - Sezioni 10-13: carica tool validati, policy di routing, test e API loop
@@ -326,7 +326,8 @@ I notebook in `project/notebooks/` documentano lo sviluppo progressivo. Scegli i
 | **12** | Validated tools + option retrieval | Tool layer generico validato, semantic guards, matching deterministico e retrieval per opzione | Baseline V1 da confrontare con V2 | ✓ |
 | **12 V2** | Constrained outputs + adaptive retrieval + Maths fixes | Come 12, ma con GBNF sull'option id finale, router JSON vincolato quando supportato, option-wise adattivo e fix deterministici Maths dai log | Baseline forte per confronto V4 | ✓ |
 | **12 V4** | Analysis-first Maths + extended tools + Micro-CoT fallback | Come V2, ma con tool Maths generici estesi, router JSON con scratchpad non validato e fallback Maths con `FINAL_CHOICE` vincolato | Baseline forte pre-V6 | ✓ |
-| **12 V6** | External BM25S + Qwen3 reranker | Come V4, ma con setup Kaggle/Colab da V5, Qwen3.5-9B Q8, `Qwen3-Reranker-0.6B`, News/Wikipedia external-primary, indice BM25S temporaneo e local RAG solo come fallback | Notebook consigliato per i run finali | ✓ |
+| **12 V6** | External BM25S + Qwen3 reranker | Come V4, ma con setup Kaggle/Colab da V5, Qwen3.5-9B Q8, `Qwen3-Reranker-0.6B`, News/Wikipedia external-primary, indice BM25S temporaneo e local RAG solo come fallback | Baseline external-primary pre-gating | ✓ |
+| **12 V7** | V6 + Wiki semantic gate + News anti-trap prompt | Come V6, ma scarta Wikipedia esterna quando il reranker non trova supporto semantico e rafforza il prompt News contro keyword trap, confusione fonte/soggetto e causa/effetto | Notebook consigliato per i run finali | ✓ |
 | **V5-Kaggle** | Unified retrieval + micro-reasoning | Notebook parallelo su Kaggle T4: elimina option-wise retrieval, unifica retrieval locale+Wikipedia+Tavily con rerank unico, e usa answer-first micro-reasoning. Math e News invariati da V4 | Alternativa per knowledge categories su single-GPU | ✓ |
 
 ### Problemi osservati nei notebook 10 e 11
@@ -406,7 +407,24 @@ Correzioni introdotte:
 - **Niente fusione local/external di default:** se l'external evidence e valida, il prompt usa solo quei chunk. Questo evita che SimpleWiki/KELM introducano match lessicali vecchi o generici.
 - **Logging esteso:** il CSV V6 salva modalita retrieval, modello reranker, parametri reranker, numero di documenti esterni, numero di chunk, sorgenti esterne e possibili errori di fetch/index.
 
-**Raccomandazione:** per i run finali parti dal **notebook 12 V6**; tieni **12 V4**, **12 V2**, **12**, **11** e **10** come baseline/ablation per mostrare il percorso di miglioramento.
+### Debolezze osservate nel notebook 12 V6
+
+I log V6 mostrano che il salto a external-first migliora News e molte domande fattive, ma introduce due fragilita ricorrenti:
+
+- **Wikipedia external troppo permissivo:** Entertainment e Ancient History/Politics usavano Wikipedia come sorgente primaria anche quando il reranker assegnava punteggi semantici molto negativi. In quei casi il BM25S trovava pagine con parole in comune, ma fuori contesto, e il local RAG non veniva piu consultato.
+- **Distrazione da omonimie o pagine vicine:** quando la pagina esterna non era davvero centrata sulla domanda, il modello tendeva a seguire il testo recuperato invece della conoscenza piu semplice gia disponibile.
+- **News con evidenza buona ma mapping fragile:** diversi errori non derivavano da mancanza di articoli, ma da interpretazione del ruolo richiesto dalla domanda: fonte che riporta la notizia vs soggetto della notizia, causa vs conseguenza, target/vittima/luogo, oppure fatto piu prominente dell'articolo invece del fatto chiesto.
+- **Rimedi meno certi:** ripetere titoli, cambiare chunking o lanciare una seconda retrieve generalizzata puo aiutare alcuni casi, ma rischia di aumentare rumore e latenza. Nei log V6 le correzioni piu sicure sono un gate semantico conservativo per Wikipedia e istruzioni News piu esplicite su cosa non fare.
+
+### Notebook 12 V7: correzioni conservative
+
+Il notebook `project/notebooks/12_V7_validated_tools_option_retrieval.ipynb` parte da V6 e cambia solo i punti sopra:
+
+- **Wiki semantic gate:** nelle categorie Wikipedia, l'evidenza esterna viene accettata solo se almeno un chunk ha supporto semantico non negativo dal reranker. Se tutti i punteggi sono negativi, il notebook scarta l'external path e torna al local RAG.
+- **Prompt News anti-trappola:** il prompt News ora chiede prima il ruolo richiesto dalla domanda e aggiunge regole generiche su cosa evitare: non scegliere per keyword overlap, non confondere fonte/soggetto, causa/effetto, target/vittima/luogo, o un fatto correlato ma non richiesto.
+- **Esperimento separato:** V7 usa `PROMPT_VERSION` dedicata e salva log in `logs/run_qwen35_q8_qwen3reranker06b_external_bm25s_v7.csv`, cosi il confronto con V6 resta pulito.
+
+**Raccomandazione:** per i run finali parti dal **notebook 12 V7**; tieni **12 V6**, **12 V4**, **12 V2**, **12**, **11** e **10** come baseline/ablation per mostrare il percorso di miglioramento.
 
 ## Costruire corpus e indici
 
@@ -463,11 +481,11 @@ Se `python` non punta all'ambiente corretto:
   -PythonPrefixArgs @('run', '-n', 'polimillionaire', 'python')
 ```
 
-I file prodotti sono `*_200w_dense_hnsw.index` e `*_200w_dense_meta.joblib` in `data/indexes/`. Per usare il notebook 12 V6 in Colab, copiarli anche in `/content/drive/MyDrive/nlp26/indexes`.
+I file prodotti sono `*_200w_dense_hnsw.index` e `*_200w_dense_meta.joblib` in `data/indexes/`. Per usare il notebook 12 V7 in Colab, copiarli anche in `/content/drive/MyDrive/nlp26/indexes`.
 
 ## State-of-the-Art: Ricerca scientifica che supporta il design
 
-Il notebook 12 V6 applica principi consolidati da lavori recenti in NLP e tool-augmented reasoning:
+Il notebook 12 V7 applica principi consolidati da lavori recenti in NLP e tool-augmented reasoning:
 
 | Principio | Riferimento | Applicazione |
 | --- | --- | --- |
@@ -481,7 +499,7 @@ Il notebook 12 V6 applica principi consolidati da lavori recenti in NLP e tool-a
 | **Strong neural reranking** | Qwen3-Reranker | Cross-encoder 0.6B sui candidati locali e sui chunk BM25S esterni |
 | **Conservative fallback** | Design patterns from tool-use lit. | Nessun tool valido → option-wise/global RAG o fallback diretto |
 
-## Strategie implementate (Notebooks 0-12 V6)
+## Strategie implementate (Notebooks 0-12 V7)
 
 - **Baseline:** API e CSV logging end-to-end
 - **Sparse IR:** TF-IDF, BM25 con varianti (stopword, title-boost)
@@ -496,6 +514,7 @@ Il notebook 12 V6 applica principi consolidati da lavori recenti in NLP e tool-a
 - **Constrained outputs + adaptive retrieval (v5, Nb 12 V2):** GBNF su risposta finale, router JSON vincolato quando supportato, option-wise adattivo e fix Maths dai log
 - **Analysis-first Maths (v6, Nb 12 V4):** router Maths con scratchpad JSON, tool generici estesi, Micro-CoT fallback vincolato e smoke test deterministici
 - **External ephemeral retrieval (Nb 12 V6):** setup Kaggle/Colab da V5, Q8 GGUF, Qwen3 reranker, Wikipedia/News external-first, BM25S temporaneo per domanda e option-wise retrieval su chunk esterni
+- **Semantic gate + anti-trap News prompt (Nb 12 V7):** mantiene V6 ma blocca Wikipedia esterna semanticamente negativa e rende il prompt News piu robusto contro errori di ruolo, fonte e causalita
 - **Unified retrieval + answer-first micro-reasoning (Nb V5-Kaggle):** retrieval multi-sorgente unificato (local + Wikipedia + Tavily), rerank cross-encoder su pool unico con soglia di qualità, eliminazione option-wise retrieval, answer-first micro-reasoning con budget 300 token. Entertainment raggiunge $1,024,000
 
 ## Log e analisi
@@ -556,7 +575,7 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 ## Checklist per la consegna (scadenza 2 giugno 2026, 23:00)
 
 ### Notebook Colab (main deliverable)
-- [ ] Usa notebook **12 V6** come base per nuove prove; conserva 12 V4, 12 V2, 12, 11 e 10 come baseline/ablation
+- [ ] Usa notebook **12 V7** come base per nuove prove; conserva 12 V6, 12 V4, 12 V2, 12, 11 e 10 come baseline/ablation
 - [ ] Self-contained: nessuna dependency esterna fuori pip
 - [ ] Colab Secrets per USERNAME/PASSWORD (NO hardcoded credentials)
 - [ ] Google Drive path ben documentato
@@ -580,7 +599,7 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 - [ ] Upload su YouTube/Drive (link in WeBeep)
 
 ### Caricamento su WeBeep
-- [ ] Notebook 12 V6 (`.ipynb` o link Drive al notebook usato)
+- [ ] Notebook 12 V7 (`.ipynb` o link Drive al notebook usato)
 - [ ] Breve README di setup (Colab secret names, paths, cose da modificare)
 - [ ] Link video presentazione
 - [ ] CSV dei risultati (facoltativo, per referenza)
@@ -592,14 +611,14 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 | `ModuleNotFoundError: millionaire_client` | Assicura che `api_client/NLP_assignment_api_client` sia in `sys.path` prima di `import` |
 | API unreachable (PoliMi WiFi) | Usa VPN o rete mobile; segnala al docente se persiste |
 | Colab/Kaggle non assegna GPU o quota esaurita | Cambia account/runtime o attendi il reset della quota; prima di caricare Qwen esegui `!nvidia-smi` e verifica GPU e VRAM disponibili |
-| CUDA OOM su V6 | Prima riduci `RERANKER_BATCH_SIZE`, `RERANKER_MAX_LENGTH` o `LLM_CONTEXT_K`; se non basta riduci `n_gpu_layers` nel caricamento Qwen o passa a una quantizzazione piu leggera |
-| `Failed to load model from file` su GGUF | Verifica size/header del file. Il notebook 12 V6 mantiene la revision Hugging Face gia usata nei run riusciti, per evitare re-upload del branch `main` non compatibili con il wheel `llama-cpp-python` installato |
+| CUDA OOM su V7 | Prima riduci `RERANKER_BATCH_SIZE`, `RERANKER_MAX_LENGTH` o `LLM_CONTEXT_K`; se non basta riduci `n_gpu_layers` nel caricamento Qwen o passa a una quantizzazione piu leggera |
+| `Failed to load model from file` su GGUF | Verifica size/header del file. Il notebook 12 V7 mantiene la revision Hugging Face gia usata nei run riusciti, per evitare re-upload del branch `main` non compatibili con il wheel `llama-cpp-python` installato |
 | Timeout su 30s | Riduci `TOP_K_RERANK`, `LLM_CONTEXT_K` o disabilita fallback LLM non essenziali |
 | CSV parse error in logging | Assicura que `json.dumps(..., ensure_ascii=False)` per testo UTF-8 |
 | Dense index missing su Drive | Esegui notebook 07 (build_dense_embeddings) o scarica da backup |
-| LLM output non parseable | Notebook 12 V6 usa GBNF per l'option id finale e valida JSON/tool call; se un vincolo runtime non e supportato, passa a fallback controllati e tracciati |
-| Maths fallback troppo verboso o lento | Notebook 12 V6 prova prima tool deterministici validati, usa router JSON analysis-first quando disponibile e limita il fallback diretto con Micro-CoT vincolato |
-| External retrieval vuoto o rumoroso | Controlla `external_docs_count`, `external_chunks_count`, `external_sources`, `external_fetch_error` e `external_index_error` nel CSV V6; se external non e usabile, il notebook torna a `local_rag` |
+| LLM output non parseable | Notebook 12 V7 usa GBNF per l'option id finale e valida JSON/tool call; se un vincolo runtime non e supportato, passa a fallback controllati e tracciati |
+| Maths fallback troppo verboso o lento | Notebook 12 V7 prova prima tool deterministici validati, usa router JSON analysis-first quando disponibile e limita il fallback diretto con Micro-CoT vincolato |
+| External retrieval vuoto o rumoroso | Controlla `external_docs_count`, `external_chunks_count`, `external_sources`, `external_fetch_error` e `external_index_error` nel CSV V7; se external non e usabile, il notebook torna a `local_rag` |
 
 ## Risorse utili
 
@@ -622,5 +641,5 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 
 ---
 
-**Aggiornamento locale:** aggiunto Notebook V5-Kaggle con unified retrieval multi-sorgente, answer-first micro-reasoning e Entertainment a $1,024,000. Notebook 12 V6 aggiornato con Qwen3-Reranker-0.6B, Q8_0 GGUF, retry News su evidenza povera, fallback option-wise esterno per News e `PROMPT_VERSION` V6 coerente.
+**Aggiornamento locale:** aggiunto Notebook V5-Kaggle con unified retrieval multi-sorgente, answer-first micro-reasoning e Entertainment a $1,024,000. Notebook 12 V6 aggiornato con Qwen3-Reranker-0.6B, Q8_0 GGUF, retry News su evidenza povera, fallback option-wise esterno per News e `PROMPT_VERSION` V6 coerente. Notebook 12 V7 aggiunto con Wiki semantic gate, prompt News anti-trappola e log separato V7.
 **Team:** NeuroniNegroni (Tommaso, Giulia, Gio)
