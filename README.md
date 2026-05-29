@@ -232,6 +232,39 @@ Question + Opzioni
 
 Le pipeline Math e News restano invariate rispetto a V4.
 
+### Notebook 12 V5 complete: V5-Kaggle + Qwen3 reranker + News knowledge fallback
+
+Il notebook `project/notebooks/12_V5_complete.ipynb` parte da V5-Kaggle e fa due interventi chirurgici sui due colli di bottiglia residui (rerank knowledge e mapping News), tenendo intatta la filosofia "answer-first micro-reasoning" e la rinuncia al option-wise per le categorie knowledge.
+
+**Cosa cambia rispetto a V5-Kaggle:**
+
+- **Reranker allineato a V6:** sostituisce il MiniLM cross-encoder con `Qwen/Qwen3-Reranker-0.6B`. Su Kaggle 2xT4 il reranker viene caricato su `cuda:1` quando disponibile, lasciando `cuda:0` al GGUF Qwen3.5-9B. Parametri runtime: `RERANKER_BATCH_SIZE=4`, `RERANKER_MAX_LENGTH=1024`, `RERANKER_DOC_MAX_CHARS=2500`.
+- **News pipeline estesa con knowledge fallback:** la chain News passa da due a tre step. Quando il Chain-of-Thought News rileva esplicitamente che gli articoli non contengono la risposta (marker tipo "do not contain", "none of the provided", "no relevant fact"), invece di cadere subito sul prompt RAG vincolato, il notebook attiva un fallback intermedio (`run_news_knowledge_fallback`) che chiede al modello di rispondere con la sua conoscenza generale, una frase di reasoning + `ANSWER:` esplicito. Solo se anche questo step non produce un option id valido si torna al prompt RAG/first-option.
+- **Python executor fallback per Maths:** prima del Micro-CoT, il notebook genera codice Python dal modello, lo esegue in un subprocess sandbox con timeout 8s (`sympy`, `math`, `Fraction`, `NormalDist` preimportati) e fa matching numerico/textuale dell'output contro le opzioni. Riduce i casi in cui il router JSON non sceglie un tool ma il problema e comunque risolvibile programmaticamente.
+- **Runner per categoria:** in fondo al notebook ci sono celle separate per Entertainment, Ancient History and Politics, Science and Nature, Philosophy and Psychology e News con `SELECTED_ATTEMPTS = 10` e retry con backoff sui drop del server.
+
+**Chain News in V5 complete:**
+
+```text
+News question
+    ↓
+fetch parallelo Google News RSS (US+UK) + Tavily
+    ↓
+run_news_choice_cot  (CoT con HEADLINE-aware prompt + ANSWER:)
+    ├─ se valido -> usa option id
+    └─ se marker "no evidence" o parsing fail -> next
+    ↓
+run_news_knowledge_fallback  (knowledge-only, ANSWER: vincolato)
+    ├─ se valido -> usa option id, confidence bassa, fallback_used=cot_no_evidence_used_model_knowledge
+    └─ altrimenti -> next
+    ↓
+build_news_rag_prompt + run_local_choice  (RAG vincolato originale)
+    ├─ se valido -> usa option id
+    └─ altrimenti -> first option (fallback finale)
+```
+
+**Risultati:** con questa configurazione la leaderboard mostra **$1,024,000 su tutte le categorie tranne Maths** (Entertainment, Ancient History and Politics, Science and Nature, Philosophy and Psychology, News tutti a $1,024,000; Maths fermo a $8,000). Maths resta lo stesso problema descritto nelle sezioni V4/V6: i tool deterministici coprono solo una parte dei pattern e il Python executor + Micro-CoT non sempre bastano per i casi piu strutturati.
+
 ## Struttura
 
 ```text
@@ -345,6 +378,7 @@ I notebook in `project/notebooks/` documentano lo sviluppo progressivo. Scegli i
 | **12 V6** | External BM25S + Qwen3 reranker | Come V4, ma con setup Kaggle/Colab da V5, Qwen3.5-9B Q8, `Qwen3-Reranker-0.6B`, News/Wikipedia external-primary, indice BM25S temporaneo e local RAG solo come fallback | Baseline external-primary pre-gating | ✓ |
 | **12 V7** | V6 + Wiki semantic gate + News anti-trap prompt | Come V6, ma scarta Wikipedia esterna quando il reranker non trova supporto semantico e rafforza il prompt News contro keyword trap, confusione fonte/soggetto e causa/effetto | Notebook consigliato per i run finali | ✓ |
 | **V5-Kaggle** | Unified retrieval + micro-reasoning | Notebook parallelo su Kaggle T4: elimina option-wise retrieval, unifica retrieval locale+Wikipedia+Tavily con rerank unico, e usa answer-first micro-reasoning. Math e News invariati da V4 | Alternativa per knowledge categories su single-GPU | ✓ |
+| **12 V5 complete** | V5-Kaggle + Qwen3 reranker + News knowledge fallback + Python executor Maths | Come V5-Kaggle, ma sostituisce il MiniLM cross-encoder con `Qwen/Qwen3-Reranker-0.6B`, aggiunge `run_news_knowledge_fallback` tra CoT News e RAG fallback, e inserisce un Python executor sandbox prima del Micro-CoT Maths. Run riportata a $1,024,000 su tutte le categorie tranne Maths | Notebook V5 di riferimento per i run finali knowledge+News | ✓ |
 
 ### Problemi osservati nei notebook 10 e 11
 
@@ -532,6 +566,7 @@ Il notebook 12 V7 applica principi consolidati da lavori recenti in NLP e tool-a
 - **External ephemeral retrieval (Nb 12 V6):** setup Kaggle/Colab da V5, Q8 GGUF, Qwen3 reranker, Wikipedia/News external-first, BM25S temporaneo per domanda e option-wise retrieval su chunk esterni
 - **Semantic gate + anti-trap News prompt (Nb 12 V7):** mantiene V6 ma blocca Wikipedia esterna semanticamente negativa e rende il prompt News piu robusto contro errori di ruolo, fonte e causalita
 - **Unified retrieval + answer-first micro-reasoning (Nb V5-Kaggle):** retrieval multi-sorgente unificato (local + Wikipedia + Tavily), rerank cross-encoder su pool unico con soglia di qualità, eliminazione option-wise retrieval, answer-first micro-reasoning con budget 300 token. Entertainment raggiunge $1,024,000
+- **V5 complete (Nb 12 V5 complete):** V5-Kaggle + `Qwen/Qwen3-Reranker-0.6B` su `cuda:1`, fallback `news_knowledge_fallback` tra CoT News e RAG, Python executor sandbox per Maths prima del Micro-CoT. Tutte le categorie tranne Maths a $1,024,000 sulla leaderboard
 
 ## Log e analisi
 
@@ -657,5 +692,5 @@ Per rispondere alla consegna, il notebook scelto per il run deve mostrare:
 
 ---
 
-**Aggiornamento locale:** aggiunto Notebook V5-Kaggle con unified retrieval multi-sorgente, answer-first micro-reasoning e Entertainment a $1,024,000. Notebook 12 V6 aggiornato con Qwen3-Reranker-0.6B, Q8_0 GGUF, retry News su evidenza povera, fallback option-wise esterno per News e `PROMPT_VERSION` V6 coerente. Notebook 12 V7 aggiunto con Wiki semantic gate, prompt News anti-trappola e log separato V7.
+**Aggiornamento locale:** aggiunto Notebook **12 V5 complete** che porta il reranker `Qwen/Qwen3-Reranker-0.6B` dentro la pipeline V5-Kaggle, aggiunge uno step di knowledge fallback alla chain News e un Python executor sandbox al ramo Maths; run finale a $1,024,000 su tutte le categorie tranne Maths. Notebook V5-Kaggle resta come baseline single-GPU con MiniLM. Notebook 12 V6 aggiornato con Qwen3-Reranker-0.6B, Q8_0 GGUF, retry News su evidenza povera, fallback option-wise esterno per News e `PROMPT_VERSION` V6 coerente. Notebook 12 V7 aggiunto con Wiki semantic gate, prompt News anti-trappola e log separato V7.
 **Team:** NeuroniNegroni (Tommaso, Giulia, Gio)
