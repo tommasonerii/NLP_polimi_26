@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="650" viewBox="0 0 1040 650">
+  <rect width="1040" height="650" fill="#ffffff"/>
+  <text x="520" y="34" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700">ASR transcription quality vs speed</text>
+  <text x="520" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#555">Advanced proxy quality: clip completeness, duration-normalized truncation, option-label fidelity, artifacts, repetition/noise, and model reliability.</text>
+
+  <line x1="100" y1="530" x2="850" y2="530" stroke="#222" stroke-width="1.5"/>
+  <line x1="100" y1="90" x2="100" y2="530" stroke="#222" stroke-width="1.5"/>
+
+  <g font-family="Arial, sans-serif" font-size="12" fill="#444">
+    <text x="100" y="554" text-anchor="middle">0.5s</text>
+    <text x="246" y="554" text-anchor="middle">1.25s</text>
+    <text x="392" y="554" text-anchor="middle">2.0s</text>
+    <text x="538" y="554" text-anchor="middle">2.75s</text>
+    <text x="684" y="554" text-anchor="middle">3.5s</text>
+    <text x="830" y="554" text-anchor="middle">4.25s</text>
+    <text x="475" y="596" text-anchor="middle" font-size="15" font-weight="700">Median total ASR seconds per question bundle</text>
+
+    <text x="88" y="534" text-anchor="end">80</text>
+    <text x="88" y="424" text-anchor="end">85</text>
+    <text x="88" y="314" text-anchor="end">90</text>
+    <text x="88" y="204" text-anchor="end">95</text>
+    <text x="88" y="94" text-anchor="end">100</text>
+  </g>
+
+  <g stroke="#e6e6e6" stroke-width="1">
+    <line x1="100" y1="420" x2="850" y2="420"/>
+    <line x1="100" y1="310" x2="850" y2="310"/>
+    <line x1="100" y1="200" x2="850" y2="200"/>
+    <line x1="100" y1="90" x2="850" y2="90"/>
+    <line x1="246" y1="90" x2="246" y2="530"/>
+    <line x1="392" y1="90" x2="392" y2="530"/>
+    <line x1="538" y1="90" x2="538" y2="530"/>
+    <line x1="684" y1="90" x2="684" y2="530"/>
+    <line x1="830" y1="90" x2="830" y2="530"/>
+  </g>
+
+  <text transform="translate(28,310) rotate(-90)" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="700">Advanced quality proxy score</text>
+
+  <rect x="100" y="90" width="292" height="132" fill="#2ca25f" opacity="0.08"/>
+  <text x="108" y="108" font-family="Arial, sans-serif" font-size="12" fill="#2f6f4e">fast + high quality</text>
+
+  <g font-family="Arial, sans-serif" font-size="12">
+    <circle cx="112" cy="136" r="8" fill="#1b9e77" stroke="#0b5f47" stroke-width="2"/>
+    <text x="126" y="131" fill="#111" font-weight="700">nemotron_streaming_0_6b</text>
+    <text x="126" y="146" fill="#555">Q 97.9 | 0.56s | RTF 0.023</text>
+
+    <circle cx="110" cy="191" r="8" fill="#66a61e" stroke="#3f6414" stroke-width="2"/>
+    <text x="124" y="186" fill="#111" font-weight="700">parakeet_tdt_0_6b_v2</text>
+    <text x="124" y="201" fill="#555">Q 95.4 | 0.55s | RTF 0.056</text>
+
+    <circle cx="137" cy="484" r="8" fill="#d95f02" stroke="#8c3b00" stroke-width="2"/>
+    <text x="151" y="479" fill="#111" font-weight="700">distil_medium_en</text>
+    <text x="151" y="494" fill="#555">Q 82.1 | 0.69s | many truncations</text>
+
+    <circle cx="291" cy="158" r="8" fill="#7570b3" stroke="#4d4878" stroke-width="2"/>
+    <text x="305" y="153" fill="#111" font-weight="700">whisper_large_v3_turbo</text>
+    <text x="305" y="168" fill="#555">Q 96.9 | 1.48s | RTF 0.073</text>
+
+    <circle cx="314" cy="257" r="8" fill="#e6ab02" stroke="#9b7200" stroke-width="2"/>
+    <text x="328" y="252" fill="#111" font-weight="700">canary_1b_v2</text>
+    <text x="328" y="267" fill="#555">Q 92.4 | 1.60s | label/artifact penalties</text>
+
+    <circle cx="382" cy="288" r="8" fill="#e7298a" stroke="#9e0d59" stroke-width="2"/>
+    <text x="396" y="283" fill="#111" font-weight="700">parakeet_tdt_0_6b_v3</text>
+    <text x="396" y="298" fill="#555">Q 91.0 | 1.95s | 12 errors</text>
+
+    <circle cx="464" cy="178" r="8" fill="#a6761d" stroke="#68450e" stroke-width="2"/>
+    <text x="478" y="173" fill="#111" font-weight="700">whisper_medium_en</text>
+    <text x="478" y="188" fill="#555">Q 96.0 | 2.37s | RTF 0.116</text>
+
+    <circle cx="808" cy="127" r="8" fill="#1f78b4" stroke="#0c4f7a" stroke-width="2"/>
+    <text x="628" y="122" fill="#111" font-weight="700">qwen3_asr_1_7b</text>
+    <text x="628" y="137" fill="#555">Q 98.3 | 4.14s | slowest</text>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="12" fill="#444">
+    <rect x="718" y="432" width="286" height="140" rx="4" fill="#f8f8f8" stroke="#ddd"/>
+    <text x="733" y="454" font-weight="700">Advanced quality components</text>
+    <text x="733" y="476">72% clip-level cleanliness/completeness</text>
+    <text x="733" y="494">18% option-label fidelity</text>
+    <text x="733" y="512">10% run reliability/errors</text>
+    <text x="733" y="534">Penalties: truncation vs audio duration,</text>
+    <text x="733" y="552">garbled terms, repetitions, filler/noise.</text>
+  </g>
+</svg>
