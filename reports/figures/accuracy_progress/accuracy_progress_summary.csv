@@ -1,0 +1,55 @@
+order,experiment,filename,notebook,note,category,correct,total,accuracy
+1,First option,first_option_comp_1.csv,00_api_smoke_test.ipynb,Baseline naive Ancient History and Politics,Ancient History and Politics,0,9,0.0
+10,TF-IDF,simplewiki_tfidf_no_llm_all_competitions.csv,01_quiz_tfidf_no_llm.ipynb,"SimpleWiki TF-IDF, no LLM",Ancient History and Politics,15,40,0.375
+20,BM25,simplewiki_bm25_no_llm_all_competitions.csv,02_quiz_bm25_no_llm.ipynb,"SimpleWiki BM25, no LLM",Ancient History and Politics,2,7,0.2857142857142857
+30,KELM BM25,simplewiki_kelm_bm25_no_llm_all_competitions.csv,03_quiz_bm25_multi_index_no_llm.ipynb,"SimpleWiki + KELM BM25, no LLM",Ancient History and Politics,5,15,0.3333333333333333
+40,BERT rerank,simplewiki_kelm_bert_no_llm_all_competitions_colab.csv,05_quiz_bm25_multi_index_bert_no_llm_colab.ipynb,"BM25 multi-index + BERT reranker, no LLM",Ancient History and Politics,15,26,0.5769230769230769
+50,BERT + LLM/tools,simplewiki_kelm_bm25_bert_llm_agentic_tools_colab.csv,06_quiz_bm25_bert_llm_agentic_tools_colab.ipynb,RAG + small LLM + initial agentic tools,Ancient History and Politics,8,19,0.42105263157894735
+80,Qwen GGUF,run_qwen35_gguf_all_competitions.csv,08_hybrid_pipeline.ipynb,Qwen3.5 GGUF hybrid RAG,Ancient History and Politics,84,99,0.8484848484848485
+90,Qwen + math tools,run_qwen35_gguf_math_tools_v2_all_competitions.csv,09_hybrid_pipeline_math_tools.ipynb,Hybrid RAG plus early Maths tool pipeline,Ancient History and Politics,101,131,0.7709923664122137
+100,Agentic tools,run_qwen35_gguf_agentic_tools_v3_all_competitions.csv,10_agentic_math_tools_prof_style.ipynb / 11_agentic_math_router_hardened.ipynb,Agentic Maths tool router and hardening baseline,Ancient History and Politics,41,44,0.9318181818181818
+120,Validated V1,run_qwen35_gguf_validated_tools_option_retrieval.csv,12_validated_tools_option_retrieval.ipynb,Validated tools + option-wise retrieval V1,Ancient History and Politics,4,9,0.4444444444444444
+122,Validated V2,run_qwen35_gguf_validated_tools_option_retrieval_v2.csv,12_V2_validated_tools_option_retrieval.ipynb,"GBNF, adaptive option retrieval, Maths fixes",Ancient History and Politics,36,40,0.9
+126,External V6,run_qwen35_q8_qwen3reranker06b_external_bm25s_v6.csv,12_V6_validated_tools_option_retrieval.ipynb,"External BM25S, Qwen3 reranker, News/Philosophy support",Ancient History and Politics,34,39,0.8717948717948718
+0,First option,first_option_comp_0.csv,00_api_smoke_test.ipynb,Baseline naive Entertainment,Entertainment,4,12,0.3333333333333333
+10,TF-IDF,simplewiki_tfidf_no_llm_all_competitions.csv,01_quiz_tfidf_no_llm.ipynb,"SimpleWiki TF-IDF, no LLM",Entertainment,13,38,0.34210526315789475
+20,BM25,simplewiki_bm25_no_llm_all_competitions.csv,02_quiz_bm25_no_llm.ipynb,"SimpleWiki BM25, no LLM",Entertainment,1,6,0.16666666666666666
+30,KELM BM25,simplewiki_kelm_bm25_no_llm_all_competitions.csv,03_quiz_bm25_multi_index_no_llm.ipynb,"SimpleWiki + KELM BM25, no LLM",Entertainment,2,12,0.16666666666666666
+40,BERT rerank,simplewiki_kelm_bert_no_llm_all_competitions_colab.csv,05_quiz_bm25_multi_index_bert_no_llm_colab.ipynb,"BM25 multi-index + BERT reranker, no LLM",Entertainment,6,17,0.35294117647058826
+50,BERT + LLM/tools,simplewiki_kelm_bm25_bert_llm_agentic_tools_colab.csv,06_quiz_bm25_bert_llm_agentic_tools_colab.ipynb,RAG + small LLM + initial agentic tools,Entertainment,15,26,0.5769230769230769
+80,Qwen GGUF,run_qwen35_gguf_all_competitions.csv,08_hybrid_pipeline.ipynb,Qwen3.5 GGUF hybrid RAG,Entertainment,57,71,0.8028169014084507
+90,Qwen + math tools,run_qwen35_gguf_math_tools_v2_all_competitions.csv,09_hybrid_pipeline_math_tools.ipynb,Hybrid RAG plus early Maths tool pipeline,Entertainment,64,94,0.6808510638297872
+100,Agentic tools,run_qwen35_gguf_agentic_tools_v3_all_competitions.csv,10_agentic_math_tools_prof_style.ipynb / 11_agentic_math_router_hardened.ipynb,Agentic Maths tool router and hardening baseline,Entertainment,8,13,0.6153846153846154
+120,Validated V1,run_qwen35_gguf_validated_tools_option_retrieval.csv,12_validated_tools_option_retrieval.ipynb,Validated tools + option-wise retrieval V1,Entertainment,28,33,0.8484848484848485
+122,Validated V2,run_qwen35_gguf_validated_tools_option_retrieval_v2.csv,12_V2_validated_tools_option_retrieval.ipynb,"GBNF, adaptive option retrieval, Maths fixes",Entertainment,20,25,0.8
+125,Knowledge V5,run_v5.csv,12_V5-kaggle.ipynb / 12_V5_complete.ipynb,Unified retrieval + answer-first micro-reasoning for knowledge categories,Entertainment,214,273,0.7838827838827839
+126,External V6,run_qwen35_q8_qwen3reranker06b_external_bm25s_v6.csv,12_V6_validated_tools_option_retrieval.ipynb,"External BM25S, Qwen3 reranker, News/Philosophy support",Entertainment,38,49,0.7755102040816326
+3,First option,first_option_comp_3.csv,00_api_smoke_test.ipynb,Baseline naive Maths,Maths,0,7,0.0
+10,TF-IDF,simplewiki_tfidf_no_llm_all_competitions.csv,01_quiz_tfidf_no_llm.ipynb,"SimpleWiki TF-IDF, no LLM",Maths,11,36,0.3055555555555556
+20,BM25,simplewiki_bm25_no_llm_all_competitions.csv,02_quiz_bm25_no_llm.ipynb,"SimpleWiki BM25, no LLM",Maths,2,7,0.2857142857142857
+30,KELM BM25,simplewiki_kelm_bm25_no_llm_all_competitions.csv,03_quiz_bm25_multi_index_no_llm.ipynb,"SimpleWiki + KELM BM25, no LLM",Maths,7,17,0.4117647058823529
+40,BERT rerank,simplewiki_kelm_bert_no_llm_all_competitions_colab.csv,05_quiz_bm25_multi_index_bert_no_llm_colab.ipynb,"BM25 multi-index + BERT reranker, no LLM",Maths,2,13,0.15384615384615385
+50,BERT + LLM/tools,simplewiki_kelm_bm25_bert_llm_agentic_tools_colab.csv,06_quiz_bm25_bert_llm_agentic_tools_colab.ipynb,RAG + small LLM + initial agentic tools,Maths,4,15,0.26666666666666666
+80,Qwen GGUF,run_qwen35_gguf_all_competitions.csv,08_hybrid_pipeline.ipynb,Qwen3.5 GGUF hybrid RAG,Maths,20,35,0.5714285714285714
+90,Qwen + math tools,run_qwen35_gguf_math_tools_v2_all_competitions.csv,09_hybrid_pipeline_math_tools.ipynb,Hybrid RAG plus early Maths tool pipeline,Maths,18,46,0.391304347826087
+100,Agentic tools,run_qwen35_gguf_agentic_tools_v3_all_competitions.csv,10_agentic_math_tools_prof_style.ipynb / 11_agentic_math_router_hardened.ipynb,Agentic Maths tool router and hardening baseline,Maths,4,9,0.4444444444444444
+120,Validated V1,run_qwen35_gguf_validated_tools_option_retrieval.csv,12_validated_tools_option_retrieval.ipynb,Validated tools + option-wise retrieval V1,Maths,6,11,0.5454545454545454
+122,Validated V2,run_qwen35_gguf_validated_tools_option_retrieval_v2.csv,12_V2_validated_tools_option_retrieval.ipynb,"GBNF, adaptive option retrieval, Maths fixes",Maths,9,14,0.6428571428571429
+130,Math 7B,run_qwen35_math_7B.csv,12_V3_math_1M.ipynb,Math-focused Qwen Math 7B run,Maths,54,84,0.6428571428571429
+132,Math 1M,run_12_V3_math_1M.csv,12_V3_math_1M.ipynb,Math-focused semantic router/tool-recall run,Maths,69,83,0.8313253012048193
+140,Math V8,run_v8.csv,12-v8-maths.ipynb,Latest local Maths-focused run present in logs,Maths,79,98,0.8061224489795918
+124,News V4,run_qwen35_gguf_validated_tools_option_retrieval_v4.csv,12_V4_validated_tools_option_retrieval.ipynb,News-focused run with headline-aware retrieval,News,58,67,0.8656716417910447
+126,External V6,run_qwen35_q8_qwen3reranker06b_external_bm25s_v6.csv,12_V6_validated_tools_option_retrieval.ipynb,"External BM25S, Qwen3 reranker, News/Philosophy support",News,43,52,0.8269230769230769
+126,External V6,run_qwen35_q8_qwen3reranker06b_external_bm25s_v6.csv,12_V6_validated_tools_option_retrieval.ipynb,"External BM25S, Qwen3 reranker, News/Philosophy support",Philosophy and Psychology,36,37,0.972972972972973
+2,First option,first_option_comp_2.csv,00_api_smoke_test.ipynb,Baseline naive Science and Nature,Science and Nature,4,15,0.26666666666666666
+10,TF-IDF,simplewiki_tfidf_no_llm_all_competitions.csv,01_quiz_tfidf_no_llm.ipynb,"SimpleWiki TF-IDF, no LLM",Science and Nature,12,37,0.32432432432432434
+20,BM25,simplewiki_bm25_no_llm_all_competitions.csv,02_quiz_bm25_no_llm.ipynb,"SimpleWiki BM25, no LLM",Science and Nature,3,8,0.375
+30,KELM BM25,simplewiki_kelm_bm25_no_llm_all_competitions.csv,03_quiz_bm25_multi_index_no_llm.ipynb,"SimpleWiki + KELM BM25, no LLM",Science and Nature,7,17,0.4117647058823529
+40,BERT rerank,simplewiki_kelm_bert_no_llm_all_competitions_colab.csv,05_quiz_bm25_multi_index_bert_no_llm_colab.ipynb,"BM25 multi-index + BERT reranker, no LLM",Science and Nature,9,20,0.45
+50,BERT + LLM/tools,simplewiki_kelm_bm25_bert_llm_agentic_tools_colab.csv,06_quiz_bm25_bert_llm_agentic_tools_colab.ipynb,RAG + small LLM + initial agentic tools,Science and Nature,29,40,0.725
+80,Qwen GGUF,run_qwen35_gguf_all_competitions.csv,08_hybrid_pipeline.ipynb,Qwen3.5 GGUF hybrid RAG,Science and Nature,133,145,0.9172413793103448
+90,Qwen + math tools,run_qwen35_gguf_math_tools_v2_all_competitions.csv,09_hybrid_pipeline_math_tools.ipynb,Hybrid RAG plus early Maths tool pipeline,Science and Nature,224,248,0.9032258064516129
+100,Agentic tools,run_qwen35_gguf_agentic_tools_v3_all_competitions.csv,10_agentic_math_tools_prof_style.ipynb / 11_agentic_math_router_hardened.ipynb,Agentic Maths tool router and hardening baseline,Science and Nature,54,58,0.9310344827586207
+120,Validated V1,run_qwen35_gguf_validated_tools_option_retrieval.csv,12_validated_tools_option_retrieval.ipynb,Validated tools + option-wise retrieval V1,Science and Nature,47,50,0.94
+122,Validated V2,run_qwen35_gguf_validated_tools_option_retrieval_v2.csv,12_V2_validated_tools_option_retrieval.ipynb,"GBNF, adaptive option retrieval, Maths fixes",Science and Nature,67,70,0.9571428571428572
+126,External V6,run_qwen35_q8_qwen3reranker06b_external_bm25s_v6.csv,12_V6_validated_tools_option_retrieval.ipynb,"External BM25S, Qwen3 reranker, News/Philosophy support",Science and Nature,36,39,0.9230769230769231
