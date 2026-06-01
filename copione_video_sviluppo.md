@@ -19,17 +19,21 @@ Notebook to show: `project/notebooks/13_speech.ipynb`.
 
 ## Script
 
+This video shows how our final pipeline evolved across experiments.
+
 Thomas
 
-We began with simple baselines to understand the API, timing constraints, and logging format. The first notebook checked the client by selecting the first option. We then moved to retrieval-only systems: TF-IDF, followed by Okapi BM25 as a stronger sparse baseline.
+We began with simple baselines to understand the API, timing constraints, and logging format. The first notebook checked the client by selecting the first option. We then moved to retrieval-only systems: TF-IDF, followed by BM25 as a stronger sparse baseline.
 
 These versions exposed a limitation: sparse retrieval is fast when a question shares words with the right document, but fragile with paraphrases, ambiguous entities, and semantically close options. The next step was therefore not a larger model, but better evidence.
 
-We added multiple sources: SimpleWiki for encyclopedic knowledge, KELM for short factual assertions, and textbook indexes for maths context. Because index scores are not directly comparable, we used Reciprocal Rank Fusion to merge rankings. Dense retrieval with MiniLM embeddings and HNSW indexes then enabled retrieval of semantically similar passages.
+We added multiple sources: SimpleWiki for encyclopedic knowledge, KELM for short factual assertions, and textbook indexes for maths context. 
+
+Because index scores are not directly comparable, we used Reciprocal Rank Fusion to merge rankings. Dense retrieval with MiniLM embeddings and HNSW indexes then enabled retrieval of semantically similar passages.
 
 After improving recall, the next issue was precision. BM25 and dense search retrieved useful candidates, but also noisy passages. This is why we introduced reranking: first a MiniLM/BERT cross-encoder, later Qwen3-Reranker. In the final pipeline, reranking is used for both local evidence and raw external sources.
 
-The generative model also evolved. At first there was no LLM. Then we tested smaller Qwen instruct models for compact reasoning and tool routing, but they were unstable with hard questions, JSON output, and final answer formatting. The final notebook uses a local Qwen3.5 9B GGUF model through `llama-cpp-python`, so answer generation stays local.
+The generative model also evolved. At first there was no LLM. Then we tested smaller Qwen instruct models for compact reasoning and tool routing, but they were unstable with hard questions, JSON output, and final answer formatting. The final notebook uses a local Qwen3.5 9B quantized model through `llama-cpp-python`, so answer generation stays local.
 
 Gio
 
