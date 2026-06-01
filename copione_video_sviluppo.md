@@ -43,17 +43,17 @@ For general knowledge, we use local RAG: sparse  and dense retrieval, fusion, re
 
 Maths was the category where the pipeline changed the most, because not all maths questions had the same nature. Some were computational, like solving an equation or simplify an expression, for these, retrieval and prompting were the wrong abstraction. The model often recognized the right method, but then made a small arithmetic mistake or mapped the computed value to the wrong option. 
 
-This is where we introduced agentic tools: the model can decide that calculation is needed and request a structured tool call, while Python validates the request, runs the computation with deterministic functions. Other maths questions were instead knowledge questions, for example about definitions or theorems. Those are treated more like general knowledge: we retrieve evidence from the textbook indexes and let the local model reason over that context, without forcing a tool when no explicit computation is needed.
+This is where we introduced agentic tools: the model can decide that calculation is needed and request a structured tool call, while Python validates the request and runs the computation with deterministic functions. Other maths questions were instead knowledge questions, for example about definitions or theorems. Those are treated more like general knowledge: we retrieve evidence from the textbooks and let the local model reason over that context, without forcing a tool when no explicit computation is needed.
 
 Giuli
 
-Prompting was refined through trial and error. We separated prompts for knowledge, News, and Maths, added different behavior when evidence is weak. The CSV logs store strategy, latency, raw output, retrieved context, tool traces and correctness, so each improvement was linked to observed failure patterns.
+Prompting was refined through trial and error. We separated prompts for knowledge, News, and Maths, and added different behavior when evidence was weak. The CSV logs store strategy, latency, raw output, retrieved context, tool traces and correctness, so each improvement was linked to observed failure patterns.
 
 Last notebook adds speech mode on top of the stable text pipeline. After a multimodel benchmark, we selected Whisper to transcribe the audio question and options. the pipeline then rebuilds a text-compatible question object, and then call the same `answer_strategy`. This makes speech errors easier to isolate from reasoning errors.
 
 Across the saved logs, we reached at least 1,024,000-dollar run for each category. The most meaningful improvement was in Maths, because the first baselines were extremely weak there: simple retrieval could not solve calculations, and pure prompting was too unstable. Reaching 1,024,000 with about 80.6% accuracy required the largest pipeline change, combining routing, agentic tools, validation, and textbook-based knowledge retrieval. 
 
-The remaining weaknesses are: some theoretical or edge-case maths questions still depend on selecting the right tool or textbook evidence, while in speech mode the main issue becomes transcription, especially for formulas, proper names and short options such as News answers.
+The remaining weaknesses are that some theoretical or edge-case maths questions still depend on selecting the right tool or textbook evidence, while in speech mode the main issue becomes transcription, especially for formulas, proper names and short options such as News answers.
 
 ## Short Backup Lines
 
