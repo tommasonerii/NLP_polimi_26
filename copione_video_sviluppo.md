@@ -39,7 +39,7 @@ For general knowledge, we use local RAG: sparse  and dense retrieval, fusion, re
 
 Maths was the category where the pipeline changed the most, because not all maths questions had the same nature. Some were computational, like solving an equation or simplify an expression, for these, retrieval and prompting were the wrong abstraction. The model often recognized the right method, but then made a small arithmetic mistake or mapped the computed value to the wrong option. 
 
-This is where we introduced agentic tools: the model can decide that calculation is needed and request a structured tool call, while Python validates the request, runs the computation with deterministic functions. Other maths questions were instead knowledge questions, for example about definitions or theorems. Those are treated more like general knowledge: we retrieve evidence from the textbook indexes and let the local model reason over that context, without forcing a tool when no explicit computation is needed.
+This is where we introduced agentic tools: the model can decide that calculation is needed and request a structured tool call, while Python validates the request and runs the computation with deterministic functions. Other maths questions were instead knowledge questions, for example about definitions or theorems. Those are treated more like general knowledge: we retrieve evidence from the textbooks and let the local model reason over that context, without forcing a tool when no explicit computation is needed.
 
 Giuli
 
