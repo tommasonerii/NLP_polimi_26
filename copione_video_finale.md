@@ -50,135 +50,95 @@ Frase guida da tenere a mente:
 
 ## Timeline video
 
+Questa e' la versione da leggere. Target realistico: circa 5 minuti con ritmo naturale.
+
 ### 0:00 - 0:25 | Introduzione e vincoli
 
-**Cosa mostrare nel notebook:** titolo, membri del gruppo, task summary, eventualmente prima cella markdown aggiunta all'inizio.
+**Cosa mostrare nel notebook:** titolo, membri del gruppo, task summary.
 
 **Da dire:**
 
 > This is our final notebook for the NLP 2026 group assignment. The goal is to build a chatbot that plays Who Wants to Be a PoliMillionaire through the provided API.
 >
-> The main constraints are: models must run locally, we cannot use LLM APIs, the models must be open-weights, and each answer has to be produced within about 30 seconds. We also evaluate different model and retrieval strategies, as requested by the assignment.
+> The important constraints are that the answer model must run locally, use open weights, avoid LLM APIs, and answer within the game timeout. Our final submission is Notebook 13.
 
-### 0:25 - 0:55 | Soluzione finale
+### 0:25 - 0:55 | Notebook 13
 
-**Cosa mostrare:** sezioni 1-6: dipendenze, path, download/caricamento Qwen GGUF, wrapper LLM.
-
-**Da dire:**
-
-> Our final solution is Notebook 13. It extends our best text pipeline, called V8, with a speech adapter.
->
-> In text mode, the system receives a question and four options. In speech mode, it first downloads the WAV audio for the question and the options, transcribes them with Whisper large-v3-turbo, and then creates the same text object used by the V8 decision engine.
->
-> So the speech component is modular: it changes the input representation, not the reasoning pipeline.
->
-> The GGUF wrapper is still useful here because the rest of the notebook needs a stable local inference interface: fixed generation parameters, controlled output, answer parsing and integration with retrieval, tools and constrained decoding.
->
-> We considered changing the model itself, but most of the errors we saw were not clearly caused by the model weights. They came from missing context, noisy context, numerical precision, or invalid final formatting. For that reason, improving the pipeline around the model was more direct and easier to test.
-
-### 0:55 - 1:35 | Architettura generale
-
-**Cosa mostrare:** diagramma pipeline, poi sezioni 7-9 su retrieval, RRF, reranker e answer parsing.
+**Cosa mostrare:** prime celle del notebook 13 e setup del modello.
 
 **Da dire:**
 
-> The core architecture has three main branches.
+> Notebook 13 is built on top of our best text-only pipeline, V8. The extra part is speech: Whisper transcribes the WAV question and options, then the same text pipeline answers the question.
 >
-> First, Maths questions use deterministic and validated tools, a Python and SymPy executor, and only then a local Qwen fallback with constrained final choice parsing.
->
-> Second, News questions use fresh raw evidence from Google News RSS and Tavily. These services are not used as LLMs: they only return raw documents or article text, which is allowed by the assignment.
->
-> Third, general knowledge questions use local RAG over SimpleWiki, KELM and mathematical textbooks. We combine sparse BM25 retrieval, dense HNSW retrieval, reciprocal rank fusion and Qwen3 reranking.
->
-> We added retrieval because the local model alone was not robust enough on knowledge questions. Many wrong answers were not pure reasoning errors: the model remembered a similar fact, confused two entities, or answered from incomplete context. Retrieval makes the model look at explicit evidence before choosing.
->
-> BM25 helped when the wording matched the question, while dense retrieval helped when the same fact was expressed differently. Both could still return noisy candidates, so reranking became necessary to decide which passages were actually useful for the final answer.
->
-> The final answer is always converted to a multiple-choice option id.
+> So speech changes only the input format. The reasoning engine, routing logic, retrieval and final answer selection stay the same.
 
-### 1:35 - 2:15 | Modelli usati
+### 0:55 - 1:45 | Architettura
 
-**Cosa mostrare:** celle di caricamento Qwen GGUF, embedding/reranker, poi solo indicare che Whisper appare nella sezione speech finale.
+**Cosa mostrare:** diagramma pipeline, poi sezioni retrieval e maths.
 
 **Da dire:**
 
-> The model stack also evolved during the project. The first notebooks did not use a generative LLM: they used TF-IDF, BM25 and then a MiniLM cross-encoder reranker.
+> The final system is modular because each module corresponds to a type of mistake we actually observed.
 >
-> The first generative LLM we added was a small Qwen2.5 Instruct model, mainly as a tool router and compact RAG fallback. Later, the main reasoning backend moved to a local Qwen3.5 9B GGUF model, first with Q6 quantization and then with Q8 in the final V8 and Notebook 13 versions.
+> For general knowledge, the local model alone was not robust enough. It sometimes confused similar entities or answered from incomplete context, so we added RAG. BM25 handles exact wording, dense retrieval handles semantic matches, and reranking filters noisy passages before the final model call.
 >
-> The final answer model is therefore Qwen3.5 9B in Q8 GGUF format, executed locally with llama-cpp-python. We use Q8 because it was more reliable than lighter variants while still fitting in the available GPU setup.
+> For Maths, retrieval was not enough. The model could often describe the right method but still make arithmetic or option-matching mistakes. So maths questions first use validated deterministic tools and Python or SymPy execution, with the local model only as a fallback.
 >
-> Dense retrieval uses a MiniLM sentence-transformer with HNSW indexes, while sparse retrieval uses BM25 or BM25S. For reranking, the final notebooks use Qwen3-Reranker 0.6B, replacing the earlier MiniLM cross-encoder because it gave cleaner evidence to the LLM.
->
-> For speech mode, we use openai/whisper-large-v3-turbo locally. The ASR output is then passed to exactly the same reasoning code as text mode.
+> For News and fresh questions, external services are used only to retrieve raw evidence. They do not generate the answer.
 
-### 2:15 - 3:00 | Evoluzione sperimentale
+### 1:45 - 2:25 | Evoluzione dei modelli
 
-**Cosa mostrare:** sezione Maths tools, Python/SymPy executor, Wikipedia/Tavily fallback.
+**Cosa mostrare:** celle di caricamento Qwen GGUF, embedding e reranker.
 
 **Da dire:**
 
-> We started with very simple baselines: first-option, TF-IDF and BM25 retrieval without an LLM. These were useful to validate the API and logging, but they were not enough for robust answering.
+> The model stack also evolved. The first notebooks had no generative LLM: only TF-IDF, BM25, and then a MiniLM cross-encoder reranker.
 >
-> We then added a MiniLM reranker, dense HNSW retrieval, a small Qwen2.5 Instruct model for routing and fallback, and eventually the larger local Qwen3.5 GGUF backend. This gave us a real RAG pipeline while keeping the answer generation local.
+> The first generative model was a small Qwen2.5 Instruct model, used mainly for tool routing and compact RAG fallback. Later we moved to a local Qwen3.5 9B GGUF backend, first with Q6 quantization and finally Q8 in V8 and Notebook 13.
 >
-> The development was mostly driven by the mistakes we saw in the logs. When a wrong answer came from missing evidence, we worked on retrieval. When it came from arithmetic, we stopped asking the model to calculate and added tools. When it came from answer formatting, we constrained the output.
->
-> The main remaining weaknesses were Maths, recent News and ambiguous entity questions. For Maths, the model could often describe the right reasoning, but small arithmetic or option-matching errors were enough to lose the game. So we progressively added validated tools, SymPy execution, deterministic option matching and a Micro-CoT fallback.
->
-> For News and entity-sensitive categories, we added fresh retrieval and fallback evidence from RSS, Tavily and Wikipedia. The goal was to avoid common traps like confusing the source of a news item with the subject of the question, or retrieving a related article that does not actually answer the question.
->
-> The final V8 notebook consolidates these components, and Notebook 13 adds the speech interface.
+> The final stack uses Qwen3.5 9B Q8 for local answer generation, MiniLM embeddings with HNSW for dense retrieval, BM25 for sparse retrieval, and Qwen3-Reranker for evidence selection.
 
-### 3:00 - 3:45 | Routing policy e codice
+### 2:25 - 3:15 | Routing e R&D
 
-**Cosa mostrare:** sezione 11 `answer_strategy`, categoria Maths, poi sezioni 13-14 API loop e run per categoria.
+**Cosa mostrare:** `answer_strategy`, categoria Maths, API loop.
 
 **Da dire:**
 
-> The central function is `answer_strategy`. It selects the strategy based on the competition category.
+> The central function is `answer_strategy`. It chooses the strategy from the competition category.
 >
-> If the category is Maths, it first tries validated deterministic tools. If no tool gives a reliable answer, it tries a Python executor, and then a local Qwen reasoning fallback.
+> The main lesson from development was that one universal prompt was not enough. Different categories failed for different reasons: missing evidence, noisy evidence, arithmetic errors, final-format errors, or speech transcription errors.
 >
-> If the category is News, it retrieves recent articles and uses a headline-aware prompt.
->
-> For Entertainment and History, the notebook can use local evidence plus Wikipedia and Tavily. For other categories, it mainly relies on the local RAG stack.
->
-> This is the R&D conclusion of the project: we did not find one universal prompt that solved everything. Different categories failed for different reasons, so the final pipeline chooses the strategy based on the error pattern we observed during development.
+> This is why the final pipeline uses routing. Maths goes through tools first. News uses fresh evidence. Static knowledge uses local RAG. The final answer is always constrained to one of the four valid option ids.
 
-### 3:45 - 4:25 | Risultati ed evaluation
+### 3:15 - 4:05 | Evaluation
 
-**Cosa mostrare:** log summary, risultati README, celle finali con CSV o tabelle, poi inizio sezione V9 speech mode.
+**Cosa mostrare:** run per categoria, log summary o risultati README.
 
 **Da dire:**
 
-> The assignment evaluation considers both leaderboard performance and the quality of the investigation. We therefore kept the previous notebooks as ablations and logged strategy, latency, correctness, retrieved evidence and tool traces.
+> We evaluated the system through API runs, not only with hand-picked examples. The logs store the selected strategy, latency, correctness, retrieved evidence and tool traces.
 >
-> Across the saved logs, we observed at least one run reaching 1,024,000 dollars for each category. The most important final improvement is on Maths: in `run_v8.csv`, the V8 Maths run reaches 1,024,000, with 98 logged questions, 79 correct answers, about 80.6 percent accuracy and no timeouts.
+> We kept the previous notebooks as ablations, because the assignment evaluates both leaderboard performance and the investigation process. Across the saved logs, we reached at least one 1,024,000-dollar run for each category.
 >
-> Notebook 13 then tests the speech extension. We added speech only after the text pipeline was stable, because we did not want to debug speech and reasoning at the same time. The `SpeechGameAdapter` wraps the original game object. It fetches audio, transcribes it, builds a text-compatible question, and then calls the same competition runner.
+> The most important improvement was on Maths, where V8 combines validated tools, option matching and local fallback reasoning while keeping the run within the timeout.
 
-### 4:25 - 4:55 | Limiti e trade-off
+### 4:05 - 4:45 | Speech e limiti
 
-**Cosa mostrare:** V9 speech run cells e limitations markdown cell.
+**Cosa mostrare:** sezione V9 speech mode e run speech.
 
 **Da dire:**
 
-> The main limitations are retrieval noise, especially for fresh or ambiguous questions, and the difficulty of parsing mathematical language from speech.
+> Speech was added only after the text pipeline was stable, so that ASR errors could be isolated from reasoning errors. The `SpeechGameAdapter` fetches audio, transcribes it with Whisper large-v3-turbo, rebuilds a text-compatible question, and calls the same competition runner.
 >
-> The larger Qwen Q8 model improves reliability, but it costs more memory and time. Qwen3-Reranker is also stronger than MiniLM, but it increases GPU load.
->
-> Speech mode is more experimental. The main bottleneck is no longer the reasoning engine, but the extra ASR and audio-fetch latency, plus transcription errors on mathematical notation and short option texts.
->
-> We avoided external LLM APIs entirely. External services are used only for raw evidence, which keeps the reasoning local and compliant with the assignment.
+> The main limitation of speech mode is latency and transcription quality, especially for mathematical notation and short option texts. In text mode, the main trade-off is between retrieval depth, reranking quality and generation time.
 
-### 4:55 - 5:00 | Chiusura
+### 4:45 - 5:00 | Chiusura
 
-**Cosa mostrare:** final cell / notebook title.
+**Cosa mostrare:** diagramma finale o titolo notebook.
 
 **Da dire:**
 
-> In summary, our final system is a local, tool-augmented RAG agent with a modular speech adapter. It satisfies the assignment constraints and shows the full evolution from simple retrieval baselines to the final multimodal notebook.
+> In summary, Notebook 13 is a local, tool-augmented RAG pipeline with a modular speech adapter. The final design is the result of the errors observed across the previous versions, rather than a single prompt around one model.
 
 ## Versione italiana alternativa
 
