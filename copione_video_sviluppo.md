@@ -19,27 +19,37 @@ Notebook to show: `project/notebooks/13_speech.ipynb`.
 
 ## Script
 
-We started with simple baselines, because we first needed to understand the API, timing constraints, and logging format. The first notebook checked the client and played by always selecting the first option. After that, we moved to retrieval-only systems: first TF-IDF, then BM25, more precisely Okapi BM25, as a stronger sparse retrieval baseline.
+Thomas
 
-Those early versions showed the first limitation. Sparse retrieval is fast when the question shares words with the right document, but fragile with paraphrases, ambiguous entities, and semantically close options. So the next step was not a bigger model immediately, but better evidence.
+We began with simple baselines to understand the API, timing constraints, and logging format. The first notebook checked the client by selecting the first option. We then moved to retrieval-only systems: TF-IDF, followed by Okapi BM25 as a stronger sparse baseline.
 
-We added multiple sources: SimpleWiki for encyclopedic knowledge, KELM for short factual assertions, and later textbook indexes for maths context. Since scores from different indexes are not directly comparable, we used Reciprocal Rank Fusion to merge rankings. Then we added dense retrieval with MiniLM embeddings and HNSW indexes, so the system could retrieve semantically similar passages.
+These versions exposed a limitation: sparse retrieval is fast when a question shares words with the right document, but fragile with paraphrases, ambiguous entities, and semantically close options. The next step was therefore not a larger model, but better evidence.
+
+We added multiple sources: SimpleWiki for encyclopedic knowledge, KELM for short factual assertions, and textbook indexes for maths context. Because index scores are not directly comparable, we used Reciprocal Rank Fusion to merge rankings. Dense retrieval with MiniLM embeddings and HNSW indexes then enabled retrieval of semantically similar passages.
 
 After improving recall, the next issue was precision. BM25 and dense search retrieved useful candidates, but also noisy passages. This is why we introduced reranking: first a MiniLM/BERT cross-encoder, later Qwen3-Reranker. In the final pipeline, reranking is used for both local evidence and raw external sources.
 
 The generative model also evolved. At first there was no LLM. Then we tested smaller Qwen instruct models for compact reasoning and tool routing, but they were unstable with hard questions, JSON output, and final answer formatting. The final notebook uses a local Qwen3.5 9B GGUF model through `llama-cpp-python`, so answer generation stays local.
 
-The main lesson from the logs was that a single universal prompt was not enough. Different categories failed in different ways. Some questions failed because the evidence was missing, some because it was noisy, some because the model made arithmetic mistakes, and some because the final output was not a valid option. For this reason, the final system is organized around `answer_strategy`, which routes each question to a category-specific path.
+Gio
 
-For general knowledge, we use local RAG: sparse retrieval, dense retrieval, fusion, reranking, and then a constrained local model call. For Entertainment and History, we also use Wikipedia and Tavily as raw evidence sources. For News, static corpora are not enough, so we use Google News RSS and Tavily to retrieve recent raw text. These services do not generate answers; they only provide evidence.
+The main lesson from the logs was that a single universal prompt was not enough. Different categories failed in different ways. Some questions failed because the evidence was missing, some because it was noisy, some because the model made arithmetic mistakes. For this reason, the final system is organized around `answer_strategy`, which routes each question to a category-specific path.
 
-Maths was the category where the pipeline changed the most, because not all maths questions had the same nature. Some were computational: solve an equation, evaluate a probability, simplify an expression, or compare numeric options. For these, retrieval and prompting were the wrong abstraction. The model often recognized the right method, but then made a small arithmetic mistake or mapped the computed value to the wrong option. This is where we introduced agentic tools: the model can decide that calculation is needed and request a structured tool call, while Python validates the request, runs the computation with controlled functions such as SymPy or numeric solvers, and accepts the result only if it matches one of the four options. Other maths questions were instead knowledge questions, for example about definitions, theorems, or terminology. Those are treated more like general knowledge: we retrieve evidence from the textbook indexes and let the local model reason over that context, without forcing a calculator-style tool when no explicit computation is needed.
+For general knowledge, we use local RAG: sparse  and dense retrieval, fusion, reranking and then a constrained local model call. For Entertainment and History, we also use Wikipedia and Tavily as raw evidence sources. For News, static corpora are not enough, so we use Google News RSS and Tavily to retrieve recent raw text.
 
-Prompting was refined through trial and error. We separated prompts for knowledge, News, and Maths, added different behavior when evidence is weak, and constrained the final answer to a valid option id. The CSV logs store strategy, latency, raw output, retrieved context, tool traces, and correctness, so each improvement was linked to observed failure patterns.
+Maths was the category where the pipeline changed the most, because not all maths questions had the same nature. Some were computational, like solving an equation or simplify an expression, for these, retrieval and prompting were the wrong abstraction. The model often recognized the right method, but then made a small arithmetic mistake or mapped the computed value to the wrong option. 
 
-Notebook 13 adds speech mode on top of the stable V8 text pipeline. Whisper large-v3-turbo transcribes the audio question and options, rebuilds a text-compatible question object, and then calls the same `answer_strategy`. This makes speech errors easier to isolate from reasoning errors.
+This is where we introduced agentic tools: the model can decide that calculation is needed and request a structured tool call, while Python validates the request, runs the computation with deterministic functions. Other maths questions were instead knowledge questions, for example about definitions or theorems. Those are treated more like general knowledge: we retrieve evidence from the textbook indexes and let the local model reason over that context, without forcing a tool when no explicit computation is needed.
 
-Across the saved logs, we reached at least one 1,024,000-dollar run for every category. The strongest improvement was in Maths, where V8 reached 1,024,000 with about 80.6% accuracy and no timeouts in the main log. The remaining limits are retrieval latency, noisy News evidence, and speech transcription errors, especially for formulas and short options.
+Giuli
+
+Prompting was refined through trial and error. We separated prompts for knowledge, News, and Maths, added different behavior when evidence is weak. The CSV logs store strategy, latency, raw output, retrieved context, tool traces and correctness, so each improvement was linked to observed failure patterns.
+
+Last notebook adds speech mode on top of the stable text pipeline. After a multimodel benchmark, we selected Whisper to transcribe the audio question and options. the pipeline then rebuilds a text-compatible question object, and then call the same `answer_strategy`. This makes speech errors easier to isolate from reasoning errors.
+
+Across the saved logs, we reached at least 1,024,000-dollar run for each category. The most meaningful improvement was in Maths, because the first baselines were extremely weak there: simple retrieval could not solve calculations, and pure prompting was too unstable. Reaching 1,024,000 with about 80.6% accuracy required the largest pipeline change, combining routing, agentic tools, validation, and textbook-based knowledge retrieval. 
+
+The remaining weaknesses are: some theoretical or edge-case maths questions still depend on selecting the right tool or textbook evidence, while in speech mode the main issue becomes transcription, especially for formulas, proper names and short options such as News answers.
 
 ## Short Backup Lines
 
