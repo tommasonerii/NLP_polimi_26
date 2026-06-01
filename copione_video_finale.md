@@ -28,11 +28,31 @@ Messaggio chiave:
 - Non eseguire live tutte le celle pesanti: mostrare il notebook, la pipeline e i log/output gia prodotti.
 - Evitare di fare chiamate API live durante il video, a meno che sia una demo breve e gia testata.
 
+## Mappa di scroll su notebook 13
+
+Usare questa mappa mentre si registra. Il video deve sembrare un commento guidato al notebook, non una presentazione separata.
+
+| Tempo | Sezione del notebook 13 da mostrare | Perche mostrarla |
+| --- | --- | --- |
+| 0:00-0:25 | Titolo iniziale e celle introduttive | Task, vincoli della consegna, notebook finale. |
+| 0:25-0:55 | Sezioni 1-6: dependencies, Drive paths, GGUF model, LLM wrapper | Fondazione locale: modello open-weight, inferenza controllata, niente LLM API esterne. |
+| 0:55-1:35 | Sezioni 7-9: embedding, BM25, HNSW, reranker, prompting, parsing | RAG statico e risposta vincolata a option id. |
+| 1:35-2:15 | Sezione 10: Maths tools, shortcut deterministici, Python/SymPy fallback | Failure mode della matematica e soluzione tool-based. |
+| 2:15-2:50 | Wikipedia/Tavily fallback e pipeline per Entertainment, History, News | Failure mode di domande ambigue o fresche: serve evidenza grezza esterna, ma ragionamento locale. |
+| 2:50-3:25 | Sezione 11: routing policy, `answer_strategy`, categoria Maths | La parte R&D piu importante: strategia diversa per categoria, non un unico prompt. |
+| 3:25-4:00 | Sezioni 13-14: API loop, smoke tests, run per categoria | Valutazione reale tramite API e log, non solo esempi scelti. |
+| 4:00-4:35 | Sezione "V9 speech mode": Whisper adapter e run speech per categoria | Notebook 13 aggiunge speech sopra V8 senza cambiare il motore testuale. |
+| 4:35-5:00 | Diagramma finale, risultati o limiti nel notebook/README | Chiusura: punti forti, trade-off, limiti. |
+
+Frase guida da tenere a mente:
+
+> Every block in the final notebook exists because a previous version exposed a specific failure mode.
+
 ## Timeline video
 
 ### 0:00 - 0:25 | Introduzione e vincoli
 
-**Cosa mostrare nel notebook:** titolo, membri del gruppo, task summary.
+**Cosa mostrare nel notebook:** titolo, membri del gruppo, task summary, eventualmente prima cella markdown aggiunta all'inizio.
 
 **Da dire:**
 
@@ -42,7 +62,7 @@ Messaggio chiave:
 
 ### 0:25 - 0:55 | Soluzione finale
 
-**Cosa mostrare:** sezione "Versione finale" o prima markdown cell del notebook 13.
+**Cosa mostrare:** sezioni 1-6: dipendenze, path, download/caricamento Qwen GGUF, wrapper LLM.
 
 **Da dire:**
 
@@ -51,10 +71,12 @@ Messaggio chiave:
 > In text mode, the system receives a question and four options. In speech mode, it first downloads the WAV audio for the question and the options, transcribes them with Whisper large-v3-turbo, and then creates the same text object used by the V8 decision engine.
 >
 > So the speech component is modular: it changes the input representation, not the reasoning pipeline.
+>
+> The GGUF wrapper is still useful here because the rest of the notebook needs a stable local inference interface: fixed generation parameters, controlled output, answer parsing and integration with retrieval, tools and constrained decoding.
 
 ### 0:55 - 1:35 | Architettura generale
 
-**Cosa mostrare:** diagramma pipeline nel notebook o nel README.
+**Cosa mostrare:** diagramma pipeline, poi sezioni 7-9 su retrieval, RRF, reranker e answer parsing.
 
 **Da dire:**
 
@@ -70,7 +92,7 @@ Messaggio chiave:
 
 ### 1:35 - 2:15 | Modelli usati
 
-**Cosa mostrare:** sezione stack/model cells: Qwen GGUF, reranker, embedding, Whisper.
+**Cosa mostrare:** celle di caricamento Qwen GGUF, embedding/reranker, poi solo indicare che Whisper appare nella sezione speech finale.
 
 **Da dire:**
 
@@ -84,7 +106,7 @@ Messaggio chiave:
 
 ### 2:15 - 3:00 | Evoluzione sperimentale
 
-**Cosa mostrare:** notebook map / evolution markdown table.
+**Cosa mostrare:** sezione Maths tools, Python/SymPy executor, Wikipedia/Tavily fallback.
 
 **Da dire:**
 
@@ -92,13 +114,13 @@ Messaggio chiave:
 >
 > We then added a MiniLM reranker, dense HNSW retrieval and eventually a local Qwen GGUF model. This gave us a real RAG pipeline.
 >
-> The main remaining weaknesses were Maths and recent News. For Maths, we progressively added validated tools, SymPy execution, deterministic option matching and a Micro-CoT fallback. For News, we added fresh retrieval from RSS and Tavily, with prompts that explicitly avoid common traps like confusing the source of a news item with the subject of the question.
+> The main remaining weaknesses were Maths, recent News and ambiguous entity questions. For Maths, we progressively added validated tools, SymPy execution, deterministic option matching and a Micro-CoT fallback. For News and entity-sensitive categories, we added fresh retrieval and fallback evidence from RSS, Tavily and Wikipedia, with prompts that explicitly avoid common traps like confusing the source of a news item with the subject of the question.
 >
 > The final V8 notebook consolidates these components, and Notebook 13 adds the speech interface.
 
 ### 3:00 - 3:45 | Routing policy e codice
 
-**Cosa mostrare:** cella `answer_strategy`, poi brevemente speech adapter.
+**Cosa mostrare:** sezione 11 `answer_strategy`, categoria Maths, poi sezioni 13-14 API loop e run per categoria.
 
 **Da dire:**
 
@@ -110,11 +132,11 @@ Messaggio chiave:
 >
 > For Entertainment and History, the notebook can use local evidence plus Wikipedia and Tavily. For other categories, it mainly relies on the local RAG stack.
 >
-> In speech mode, the `SpeechGameAdapter` wraps the original game object. It fetches audio, transcribes it, builds a text-compatible question, and then calls the same competition runner.
+> This is the R&D conclusion of the project: we did not find one universal prompt that solved everything. We found that different question categories need different failure-aware strategies.
 
 ### 3:45 - 4:25 | Risultati ed evaluation
 
-**Cosa mostrare:** log summary, risultati README, celle finali con CSV o tabelle.
+**Cosa mostrare:** log summary, risultati README, celle finali con CSV o tabelle, poi inizio sezione V9 speech mode.
 
 **Da dire:**
 
@@ -122,17 +144,19 @@ Messaggio chiave:
 >
 > Across the saved logs, we observed at least one run reaching 1,024,000 dollars for each category. The most important final improvement is on Maths: in `run_v8.csv`, the V8 Maths run reaches 1,024,000, with 98 logged questions, 79 correct answers, about 80.6 percent accuracy and no timeouts.
 >
-> Speech mode is more experimental. The main bottleneck is no longer the reasoning engine, but the extra ASR and audio-fetch latency, plus transcription errors on mathematical notation and short option texts.
+> Notebook 13 then tests the speech extension. The `SpeechGameAdapter` wraps the original game object. It fetches audio, transcribes it, builds a text-compatible question, and then calls the same competition runner.
 
 ### 4:25 - 4:55 | Limiti e trade-off
 
-**Cosa mostrare:** limitations markdown cell.
+**Cosa mostrare:** V9 speech run cells e limitations markdown cell.
 
 **Da dire:**
 
 > The main limitations are retrieval noise, especially for fresh or ambiguous questions, and the difficulty of parsing mathematical language from speech.
 >
 > The larger Qwen Q8 model improves reliability, but it costs more memory and time. Qwen3-Reranker is also stronger than MiniLM, but it increases GPU load.
+>
+> Speech mode is more experimental. The main bottleneck is no longer the reasoning engine, but the extra ASR and audio-fetch latency, plus transcription errors on mathematical notation and short option texts.
 >
 > We avoided external LLM APIs entirely. External services are used only for raw evidence, which keeps the reasoning local and compliant with the assignment.
 
