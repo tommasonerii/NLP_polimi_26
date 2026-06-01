@@ -1,0 +1,294 @@
+COPIONE VIDEO - NOTEBOOK FINALE 12-v9-maths-speech
+Durata stimata: 4 minuti e 50 secondi
+
+Nota per la registrazione:
+- Mostrare solo il notebook finale: project/notebooks/12-v9-maths-speech.ipynb
+- Aprire direttamente sulle celle della modalita speech: niente introduzione lunga e niente setup tecnico generico.
+- Mentre parli, scorri sulle celle indicate e zooma solo sugli snippet chiave.
+- Obiettivo narrativo: far vedere come il notebook prende audio dal gioco, lo trascrive, sceglie la risposta con la pipeline NLP e la invia al server.
+
+
+0:00 - 0:50 | Speech end-to-end: domanda, opzioni e invio risposta | 50 secondi
+
+Cosa mostrare:
+- Cella in cui il gioco viene avviato con `mode="speech"`.
+- Celle in cui vengono scaricati audio della domanda e audio delle quattro opzioni.
+- Cella in cui viene chiamata la strategia e poi `game.answer(option_id)`.
+
+Cosa dire:
+"Parto direttamente dal flusso finale usato nel notebook 12-v9-maths-speech. In questa versione la partita viene avviata in modalita speech, quindi il server non ci da solo testo: ci fornisce audio WAV per la domanda e per ciascuna opzione. Il notebook scarica prima l'audio della domanda, poi le opzioni A, B, C e D in ordine, perche il server le consegna sequenzialmente. Dopo la trascrizione, costruiamo una domanda testuale compatibile con la pipeline standard, scegliamo un `option_id` tra 0 e 3 e lo inviamo al server con `game.answer`. Quindi il ciclo completo e: audio dal server, speech-to-text, scelta della risposta, submit dell'id e logging del risultato."
+
+Codice da evidenziare:
+```python
+game = client.game.start(competition_id=competition_id, mode="speech")
+
+audio_question = game.fetch_audio_question()
+audio_options = []
+for _ in range(4):
+    audio_options.append(game.fetch_audio_option_next())
+
+question_text = transcribe_audio(audio_question)
+option_texts = [transcribe_audio(audio) for audio in audio_options]
+
+question = build_question_from_transcripts(question_text, option_texts)
+decision = choose_answer(question, competition_name=competition_name)
+result = game.answer(decision.option_id)
+```
+
+Dettaglio importante da dire:
+- In speech mode non scegliamo una lettera A/B/C/D, ma sempre l'`option_id` richiesto dall'API.
+- Nei log salviamo sia trascrizione sia tempi di fetch/ASR, cosi possiamo distinguere errori del modello da errori di trascrizione.
+
+
+0:50 - 1:25 | ASR: Distil-Whisper e normalizzazione delle opzioni | 35 secondi
+
+Cosa mostrare:
+- Cella di caricamento del modello ASR.
+- Cella con `speech_question_transcript` e `speech_options_transcript_json`.
+- Esempio di log dove le opzioni trascritte contengono "Option A", "Option B", ecc.
+
+Cosa dire:
+"La parte speech vera e propria usa Distil-Whisper, caricato su GPU. L'audio e WAV, quindi il notebook lo converte in array audio, lo passa al modello ASR e ottiene testo per domanda e opzioni. Poi puliamo le opzioni: rimuoviamo parole come `Option A`, normalizziamo piccoli errori di punteggiatura e manteniamo comunque l'associazione con l'id originale dell'opzione. Questo passaggio e fondamentale: se l'ASR sbaglia un nome proprio o deforma un'opzione, il retrieval e il modello possono ragionare su un input gia rumoroso."
+
+Codice da evidenziare:
+```python
+speech_model_name = "distil-whisper/distil-medium.en"
+asr = pipeline(
+    "automatic-speech-recognition",
+    model=speech_model_name,
+    device=speech_device,
+)
+
+question_text = transcribe_wav_bytes(audio_question)
+options = [
+    {"id": opt.id, "text": clean_option_transcript(text)}
+    for opt, text in zip(game.current_question.options, option_texts)
+]
+```
+
+Log speech da mostrare:
+```python
+row["speech_mode"] = True
+row["speech_model"] = "distil-whisper/distil-medium.en"
+row["speech_question_transcript"] = question_text
+row["speech_options_transcript_json"] = json.dumps(options)
+row["speech_transcription_seconds"] = transcription_seconds
+```
+
+
+1:25 - 2:05 | Retrieval locale: SimpleWiki, KELM, libri e reranking | 40 secondi
+
+Cosa mostrare:
+- Celle dove vengono caricati gli indici SimpleWiki, KELM e textbook Maths.
+- Celle con BM25, Dense/HNSW, Reciprocal Rank Fusion e reranker.
+
+Cosa dire:
+"Una volta ottenuto il testo dalla parte speech, la pipeline e la stessa delle domande testuali. Per le domande fattuali usiamo SimpleWiki e KELM; per Maths usiamo anche chunk da libri di algebra, analisi, statistica, discrete math e topology. Ogni domanda viene cercata con retrieval lessicale BM25 e con retrieval denso HNSW. Poi fondiamo i risultati con Reciprocal Rank Fusion, perche gli score dei diversi indici non sono calibrati tra loro. Infine Qwen3-Reranker-0.6B riordina i chunk piu promettenti prima che arrivino al modello generativo."
+
+Codice da evidenziare:
+```python
+def retrieve(index, query, top_k=5):
+    # BM25 / TF-IDF / dense retrieval
+    ...
+
+def reciprocal_rank_fusion(rankings, rrf_k=60):
+    fused[doc_id] += 1.0 / (rrf_k + rank + 1)
+    return sorted(fused, key=lambda x: x["rrf_score"], reverse=True)
+
+reranker = CrossEncoder("Qwen/Qwen3-Reranker-0.6B", device=RERANKER_DEVICE)
+```
+
+Da spiegare mentre mostri il codice:
+- BM25 e veloce e trova match lessicali.
+- Dense retrieval recupera documenti semanticamente vicini.
+- RRF evita di dipendere da un solo corpus.
+- Il reranker seleziona i chunk piu utili per il prompt.
+
+
+2:05 - 2:45 | External retrieval e prompt RAG controllato | 40 secondi
+
+Cosa mostrare:
+- Celle relative a Wikipedia, Google News RSS, Tavily e indice BM25S temporaneo.
+- Prompt finale RAG con opzioni 0-3.
+- Campo `retrieval_mode` nel log.
+
+Cosa dire:
+"Per alcune categorie il corpus locale non basta. News puo contenere fatti recenti, mentre Entertainment e History spesso richiedono una pagina Wikipedia piu specifica. Per questo abbiamo introdotto retrieval esterno non generativo: recuperiamo testo grezzo da Wikipedia, RSS o Tavily, lo dividiamo in chunk e costruiamo un indice BM25S temporaneo in RAM solo per quella domanda. Questo indice viene interrogato sia con la domanda globale sia con query option-wise. Se l'evidenza esterna supera i controlli, il prompt usa quella; altrimenti torna al RAG locale."
+
+Codice da evidenziare:
+```python
+external_docs = fetch_wikipedia_or_news(question, options)
+external_chunks = chunk_external_documents(external_docs)
+external_index = ExternalEphemeralBM25S(external_chunks)
+
+docs = external_index.retrieve(question_text, top_k=TOP_K)
+docs = rerank(question_text, docs)
+
+retrieval_mode = "external_bm25s_ephemeral" if docs else "local_rag"
+```
+
+Prompt da evidenziare:
+```python
+prompt = f"""
+Use only the evidence below.
+Question: {question_text}
+Options:
+0. {options[0]}
+1. {options[1]}
+2. {options[2]}
+3. {options[3]}
+Return only the option id.
+"""
+```
+
+
+2:45 - 3:20 | Modello LLM locale e output vincolato | 35 secondi
+
+Cosa mostrare:
+- Cella di caricamento Qwen GGUF con llama-cpp.
+- Cella con GBNF / parser di output.
+- Cella answer-first o `FINAL_CHOICE`.
+
+Cosa dire:
+"Il modello principale e Qwen3.5-9B in formato GGUF, eseguito localmente con llama-cpp. Non usiamo API LLM esterne: il reasoning resta nel notebook. Per rispettare il limite dei 30 secondi, il prompt e compatto e l'output e vincolato. Quando serve solo scegliere una risposta, forziamo un numero tra 0 e 3. Nei casi piu difficili, soprattutto in Maths, permettiamo un ragionamento brevissimo ma obblighiamo il modello a terminare con `FINAL_CHOICE`, cosi il parser puo estrarre sempre l'id finale."
+
+Codice da evidenziare:
+```python
+llm = Llama(
+    model_path=QWEN_GGUF_PATH,
+    n_ctx=8192,
+    n_gpu_layers=-1,
+    verbose=False,
+)
+
+OPTION_ID_GBNF = r"""
+root ::= [0-3]
+"""
+```
+
+Parser:
+```python
+match = re.search(r"FINAL_CHOICE\s*:\s*([0-3])", raw_output)
+if match:
+    option_id = int(match.group(1))
+```
+
+
+3:20 - 4:25 | Ramo Maths: tool, router, executor e fallback | 65 secondi
+
+Cosa mostrare:
+- Celle con deterministic shortcuts.
+- Celle con tool registry / semantic router.
+- Celle Python executor.
+- Celle textbook retrieval per Maths.
+- Log di una risposta corretta con tool trace.
+
+Cosa dire:
+"La parte piu specifica e Maths. Qui non basta recuperare testo, perche molte domande richiedono calcolo simbolico o ragionamento formale. Per questo abbiamo costruito una catena a livelli. Prima proviamo shortcut deterministici molto veloci, per pattern noti: somme di quadrati, LCM, equazioni esponenziali con stessa base, gruppi quoziente, probabilita, distribuzioni normali, combinatoria e geometria. Se uno shortcut trova una risposta, il risultato viene validato e mappato sulle opzioni."
+
+"Se non basta, entra un router LLM in JSON: il modello non risponde direttamente, ma sceglie un tool e argomenti. Python valida schema e semantica prima di eseguire. Poi c'e un executor che fa generare codice Python/SymPy al modello in modo sandboxato, con timeout, e confronta l'output con le opzioni. Come ultimi fallback usiamo retrieval sui libri di matematica e una micro-CoT vincolata, oppure un Qwen2.5-Math-7B caricato lazy solo quando serve."
+
+Codice da evidenziare:
+```python
+DEFAULT_TOOLS = (
+    tool_numeric_expression,
+    tool_basic_equation_options,
+    tool_modular_weekday,
+    tool_prime_digit_sum,
+    tool_lcm_gcd_options,
+    tool_correlation,
+    tool_simple_field_extension,
+    tool_direct_product_quotient_order,
+)
+```
+
+Tool call validata:
+```python
+call = {
+    "tool": "math_lcm_from_factors",
+    "args": {"numbers": [16, 15, 12]}
+}
+
+result = execute_validated_math_tool(call)
+option_id = match_result_to_options(result, question.options)
+```
+
+Esempio da log da mostrare:
+```python
+strategy = "deterministic_math_lcm_from_factors"
+explanation = "Least positive integer divisible by [16, 15, 12] is lcm=240."
+chosen_option_id = 0
+correct = True
+latency_seconds = 0.003
+```
+
+Executor Python:
+```python
+code = generate_python_solution(question_text, options)
+raw = run_python_sandbox(code, timeout=8)
+option_id = parse_option_id_or_match_numeric_value(raw, options)
+```
+
+Micro-CoT finale:
+```text
+Step 1: ...
+Step 2: ...
+FINAL_CHOICE: 1
+```
+
+
+4:25 - 4:40 | Runner, logging e diagnostica | 15 secondi
+
+Cosa mostrare:
+- Celle finali che lanciano i run.
+- CSV log prodotto.
+- Campi speech e campi tool nello stesso log.
+
+Cosa dire:
+"Ogni partita viene registrata in CSV. Non salviamo solo risposta e correttezza: salviamo strategia usata, latenza, prompt version, evidenza recuperata, sorgenti, trace dei tool, fallback e campi speech. Questo e servito per fare debugging iterativo: ogni errore nei log indicava se il problema era ASR, retrieval, tool, modello o parsing."
+
+Codice da evidenziare:
+```python
+row = {
+    "competition_name": competition_name,
+    "question_id": question.id,
+    "chosen_option_id": option_id,
+    "correct": result.correct,
+    "latency_seconds": latency,
+    "strategy": strategy,
+    "retrieved_context": retrieved_context,
+    "math_tool_trace": json.dumps(tool_trace),
+    "speech_question_transcript": question_text,
+    "speech_options_transcript_json": json.dumps(options),
+}
+```
+
+
+4:40 - 4:50 | Chiusura: risultato e limiti | 10 secondi
+
+Cosa mostrare:
+- Risultato finale / leaderboard / ultima cella log.
+
+Cosa dire:
+"In sintesi, il notebook finale collega speech-to-text, retrieval, reranking, modello locale, tool deterministici e fallback tracciati. Il risultato da 1,024,000 nasce proprio da questa architettura modulare e dal debugging sui log."
+
+Limiti da citare solo se resta tempo:
+- Speech: ASR puo deformare nomi propri o opzioni.
+- News: dipende dalla qualita del fetch esterno.
+- Maths: le domande concettuali restano piu difficili dei calcoli diretti.
+- Latenza: reranker, LLM ed executor vanno sempre bilanciati col vincolo dei 30 secondi.
+
+
+RIASSUNTO RAPIDO DA TENERE A MENTE DURANTE IL VIDEO
+
+1. Si parte subito da speech mode, non dal setup.
+2. Audio domanda + audio opzioni -> Distil-Whisper -> testo.
+3. Le opzioni trascritte restano col loro `option_id`.
+4. La risposta viene inviata con `game.answer(decision.option_id)`.
+5. Dopo ASR, la pipeline e unica: RAG, reranking, LLM, tool, fallback.
+6. Knowledge RAG: SimpleWiki + KELM + BM25 + dense HNSW + RRF.
+7. External RAG: Wikipedia/News/Tavily grezzi -> chunk -> BM25S temporaneo.
+8. LLM: Qwen3.5-9B GGUF locale, output 0-3 vincolato.
+9. Maths: shortcut -> router JSON -> validated tools -> Python executor -> textbook retrieval -> Micro-CoT.
+10. Logging: ogni decisione mostra se l'errore viene da ASR, retrieval, tool o modello.
+
