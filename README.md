@@ -1,26 +1,42 @@
-# PoliMillionaire NLP 2026
+# 🍹 PoliMillionaire NLP 2026
 
-Progetto NLP 2025-26 @ Politecnico di Milano.
+> **Who Wants to Be a PoliMillionaire?** — un agente RAG che gioca al quiz usando solo modelli open-weights eseguiti in locale.
+
+<div align="center">
+
+### 👥 Team **NeuroniNegroni**
+
+| Membro | GitHub |
+| :-- | :-- |
+| **Giulia Mengoli** | [@giulimengo](https://github.com/giulimengo) |
+| **Giorgio Monaco** | [@giorgiomonaco](https://github.com/giorgiomonaco) |
+| **Tommaso Neri** | [@tommasonerii](https://github.com/tommasonerii) |
+
+*Progetto del corso di Natural Language Processing — A.A. 2025/26 @ Politecnico di Milano*
+
+</div>
+
+---
 
 Il sistema gioca a **Who Wants to Be a PoliMillionaire?** usando modelli open-weights eseguiti localmente. La soluzione finale combina retrieval augmented generation, reranking neurale, tool deterministici per matematica, fonti esterne non generative per domande recenti e una variante speech con ASR locale.
 
 ## Versione finale
 
-Il notebook principale finale da consegnare e presentare e:
+Il notebook principale finale da consegnare e presentare è:
 
 ```text
-project/notebooks/13_speech.ipynb
+project/notebooks/delivery/notebook_final.ipynb
 ```
 
-Questo notebook include la pipeline testuale finale V8 e la sua estensione speech. La base testuale, utile come riferimento e ablation, e:
+Questo notebook include la pipeline testuale finale e la sua estensione speech. La base testuale, utile come riferimento e ablation, è:
 
 ```text
-project/notebooks/12-v8-clean.ipynb
+project/notebooks/development/12-v8-clean.ipynb
 ```
 
-`13_speech.ipynb` parte dalla pipeline di `12-v8-clean.ipynb` e aggiunge solo l'adapter speech: scarica gli audio WAV dal server, trascrive domanda e opzioni con Whisper, costruisce una domanda testuale compatibile e richiama la stessa `answer_strategy` del V8.
+`notebook_final.ipynb` parte dalla pipeline di `12-v8-clean.ipynb` e aggiunge solo l'adapter speech: scarica gli audio WAV dal server, trascrive domanda e opzioni con Whisper, costruisce una domanda testuale compatibile e richiama la stessa `answer_strategy`.
 
-I notebook `00-12_V7` restano come baseline, ablation e storia sperimentale. Per la consegna, il notebook principale da mostrare e **13_speech**; `12-v8-clean` resta la versione testuale pulita su cui il 13 e basato.
+I notebook `00-12_V7` restano come baseline, ablation e storia sperimentale.
 
 ## Vincoli dell'assignment
 
@@ -33,36 +49,16 @@ I notebook `00-12_V7` restano come baseline, ablation e storia sperimentale. Per
 - Evitare richieste troppo ravvicinate al server.
 - Confrontare piu soluzioni, modelli, prompt e architetture.
 
-La consegna ufficiale e in [docs/assignment/GroupAssignment2026.docx](docs/assignment/GroupAssignment2026.docx). Scadenza corretta confermata dal docente: **martedi 2 giugno 2026**. Il documento di assignment indica la consegna via WeBeep entro le **23:00**.
-
-## Indicazioni docente
-
-Aggiornamento operativo ricevuto dal docente:
-
-- La deadline non e domenica 25 maggio: la deadline corretta e **martedi 2 giugno 2026**.
-- Bisogna preparare sia notebook sia video da **5 minuti**.
-- Nel video bisogna mostrare **solo il notebook**, senza slide.
-- Il video non va accelerato.
-- Non e obbligatorio che parlino tutti i membri, ma e incoraggiato.
-- Il video verra visto durante le sessioni di presentazione di **mercoledi 3 giugno 2026** e **venerdi 5 giugno 2026**.
-- Ogni gruppo ha 12 minuti totali: video piu domande.
-- Tutti i membri devono partecipare; chi ha un motivo legittimo deve collegarsi via Webex.
-- Arrivare almeno 15 minuti prima dello slot assegnato.
-- Le sessioni sono in **Room PT3, Building 20A**.
-- Ogni gruppo deve inserire nello spreadsheet i link a video e notebook OneDrive.
-- Si puo consegnare piu di un notebook in un unico zip.
-- Solo un membro del gruppo deve consegnare su WeBeep.
-- Non includere dati nel materiale consegnato.
+La consegna ufficiale è in [docs/assignment/GroupAssignment2026.docx](docs/assignment/GroupAssignment2026.docx).
 
 ## Stack finale
 
 | Componente | Scelta finale |
 | --- | --- |
-| Notebook principale | `project/notebooks/13_speech.ipynb` |
-| Base testuale | `project/notebooks/12-v8-clean.ipynb` |
+| Notebook principale | `project/notebooks/delivery/notebook_final.ipynb` |
+| Base testuale | `project/notebooks/development/12-v8-clean.ipynb` |
 | LLM answer/reasoning | `Qwen_Qwen3.5-9B-Q8_0.gguf` via `llama-cpp-python` |
 | GGUF repo | `bartowski/Qwen_Qwen3.5-9B-GGUF` |
-| GGUF revision | `b8d8d7cea4ac7388a497614c4ea3d720712b2475` |
 | Reranker | `Qwen/Qwen3-Reranker-0.6B` |
 | Embedding dense | `sentence-transformers/multi-qa-MiniLM-L6-cos-v1` |
 | Sparse retrieval | BM25/BM25S |
@@ -72,12 +68,10 @@ Aggiornamento operativo ricevuto dal docente:
 | Maths | tool validati, SymPy/Python executor, Micro-CoT fallback |
 | Speech ASR | `openai/whisper-large-v3-turbo` |
 | Output vincolato | GBNF single digit `0-3`, parser `FINAL_CHOICE`, matching opzioni |
-| Log testuale | `logs/run_v8.csv` |
-| Log speech | `logs/run_v9_speech.csv` |
 
 ## Risultati osservati
 
-I log nel repository mostrano almeno una run a **$1,024,000** per ogni categoria. Il miglioramento piu importante del V8 e su **Maths**, dove `logs/run_v8.csv` arriva a $1,024,000 con 98 righe, 79 corrette, accuracy 80.6%, latenza media 12.27s e 0 timeout.
+I log nel repository nella modalità text, mostrano almeno una run a **$1,024,000** per ogni categoria. Il miglioramento piu importante del è su **Maths**, dove `logs/run_v8.csv` arriva a $1,024,000 con 98 righe, 79 corrette, accuracy 80.6%, latenza media 12.27s e 0 timeout.
 
 | Categoria | Best earning osservato | Log di riferimento |
 | --- | ---: | --- |
@@ -88,13 +82,13 @@ I log nel repository mostrano almeno una run a **$1,024,000** per ogni categoria
 | News | $1,024,000 | `logs/run_qwen35_gguf_validated_tools_option_retrieval_v4.csv` |
 | Maths | $1,024,000 | `logs/run_12_V3_math_1M.csv`, `logs/run_v8.csv` |
 
-La modalita speech e funzionante ma piu sperimentale: `logs/run_v9_speech.csv` mostra che il collo di bottiglia e ASR + timeout server, non la pipeline testuale sottostante. Il notebook salva anche gli audio in `speech_audio_v9/` per analisi degli errori di trascrizione.
+La modalita speech è funzionante ma piu sperimentale: `logs/run_v9_speech.csv` mostra che il collo di bottiglia è ASR + timeout server, non la pipeline testuale sottostante. Il notebook salva anche gli audio in `speech_audio_v9/` per analisi degli errori di trascrizione.
 
 ## Quick Start finale
 
 ### Kaggle
 
-I notebook finali sono pensati per Kaggle con GPU T4 e due dataset di input:
+I notebook finali sono pensati per Kaggle con due GPU T4 e due dataset di input:
 
 ```text
 /kaggle/input/datasets/giorgiomonacoo/nlp2026
@@ -110,7 +104,7 @@ HF_TOKEN
 TAVILY-API-KEY
 ```
 
-Per la consegna finale, eseguire `project/notebooks/13_speech.ipynb` dall'inizio. Il notebook:
+Per la consegna finale, eseguire `project/notebooks/delivery/notebook_final.ipynb` dall'inizio. Il notebook:
 
 1. installa dipendenze minime;
 2. rileva ambiente Kaggle/Colab/local;
@@ -118,15 +112,8 @@ Per la consegna finale, eseguire `project/notebooks/13_speech.ipynb` dall'inizio
 4. scarica e valida il GGUF Qwen3.5 Q8;
 5. carica embedding model, BM25/HNSW e reranker Qwen3;
 6. carica tool Maths, retrieval esterno e routing policy;
-7. esegue le celle per categoria e appende i risultati testuali a `logs/run_v8.csv`;
-8. nelle celle speech finali, carica Whisper e salva risultati speech in `logs/run_v9_speech.csv`.
-
-La base testuale `project/notebooks/12-v8-clean.ipynb` puo essere consegnata nello zip come riferimento aggiuntivo, ma il notebook principale resta il 13. Dopo la pipeline V8, le celle `V9 speech mode` salvano:
-
-```text
-logs/run_v9_speech.csv
-speech_audio_v9/
-```
+7. esegue le celle per categoria e appende i risultati testuali nei logs;
+8. nelle celle speech finali, carica Whisper e salva risultati speech.
 
 ### Colab o locale
 
@@ -136,12 +123,12 @@ Se si usa Colab, copiare su Drive:
 
 ```text
 MyDrive/nlp26/
-|-- project/notebooks/13_speech.ipynb
-|-- project/notebooks/12-v8-clean.ipynb
+|-- project/notebooks/delivery/notebook_final.ipynb
+|-- project/notebooks/development/12-v8-clean.ipynb
 |-- api_client/NLP_assignment_api_client/
 |-- project/src/
-|-- indexes/
-`-- chunks/ o corpus necessari
+|-- data/indexes/
+`-- data/chunks/ o corpus necessari
 ```
 
 Usare Colab/Kaggle secrets, non credenziali hardcoded.
@@ -150,7 +137,7 @@ Usare Colab/Kaggle secrets, non credenziali hardcoded.
 
 Diagramma riassuntivo:
 
-![Final V9 pipeline](reports/figures/Final%20Pipeline%20IMG.png)
+![Final pipeline](reports/figures/Final_Pipeline_IMG.png)
 
 ```text
 Question + options
@@ -200,7 +187,7 @@ API answer + CSV logging
 
 ### Speech adapter
 
-`13_speech.ipynb` mantiene invariata la pipeline testuale:
+L'adapter speech (integrato in `notebook_final.ipynb`, sviluppato in `development/13_speech.ipynb`) mantiene invariata la pipeline testuale:
 
 ```text
 Speech game WAV audio
@@ -242,14 +229,14 @@ Le fonti esterne non generano risposte: restituiscono testo grezzo che viene poi
 
 ### Maths
 
-Il ramo Maths del V8 evita di dipendere subito dal modello:
+Il ramo Maths evita di dipendere subito dal modello:
 
 1. pattern e tool deterministici validati;
 2. matching numerico/testuale verso le opzioni;
 3. Python executor sandbox con SymPy/math/Fraction/NormalDist;
 4. Micro-CoT Qwen locale con output vincolato.
 
-Il router JSON LLM rimane nel codice come baseline/ablation, ma nel routing V8 i tool deterministici sono privilegiati per latenza e robustezza.
+Il router JSON LLM rimane nel codice come baseline/ablation, ma nel routing i tool deterministici sono privilegiati per latenza e robustezza.
 
 ### Output e parsing
 
@@ -302,15 +289,28 @@ Il router JSON LLM rimane nel codice come baseline/ablation, ma nel routing V8 i
 
 ## Notebook map
 
+I notebook sono organizzati in due cartelle:
+
+- `project/notebooks/delivery/` — il notebook finale da consegnare e presentare;
+- `project/notebooks/development/` — baseline, ablation e storia sperimentale.
+
+### Delivery — `project/notebooks/delivery/`
+
 | Notebook | Ruolo | Stato |
 | --- | --- | --- |
-| `api_client/NLP_assignment_api_client/PoliMillionaire.ipynb` | tutorial API ufficiale | riferimento |
+| `notebook_final.ipynb` | pipeline testuale V8 + adapter speech | **finale principale** |
+| `notebook_final_html.html` | export HTML del notebook finale | snapshot presentazione |
+
+### Development — `project/notebooks/development/`
+
+| Notebook | Ruolo | Stato |
+| --- | --- | --- |
 | `00_api_smoke_test.ipynb` | smoke test API e first-option baseline | baseline |
 | `01_quiz_tfidf_no_llm.ipynb` | TF-IDF SimpleWiki senza LLM | baseline |
 | `02_quiz_bm25_no_llm.ipynb` | BM25 SimpleWiki senza LLM | baseline |
 | `03_quiz_bm25_multi_index_no_llm.ipynb` | BM25 SimpleWiki + KELM | baseline |
 | `04_quiz_tfidf_multi_index_no_llm.ipynb` | TF-IDF SimpleWiki + KELM | baseline |
-| `05_*bert_no_llm*.ipynb` | BM25 + MiniLM/BERT reranker | ablation reranking |
+| `05_quiz_bm25_multi_index_bert_no_llm.ipynb` (+ `_colab`) | BM25 + MiniLM/BERT reranker | ablation reranking |
 | `06_quiz_bm25_bert_llm_agentic_tools_colab.ipynb` | primo LLM piccolo + tool router | ablation agentica |
 | `07_build_dense_embeddings_colab.ipynb` | costruzione indici dense HNSW | utility |
 | `08_hybrid_pipeline.ipynb` | prima Hybrid RAG con Qwen3.5 GGUF | baseline LLM |
@@ -328,8 +328,12 @@ Il router JSON LLM rimane nel codice come baseline/ablation, ma nel routing V8 i
 | `12_V7_validated_tools_option_retrieval.ipynb` | semantic gate + anti-trap News prompt | baseline precedente |
 | `12-v8-maths.ipynb` | ramo sperimentale Maths/V8 | evidence |
 | `12-v8-clean.ipynb` | pipeline testuale V8 pulita | base testuale finale |
-| `13_speech.ipynb` | pipeline V8 + speech adapter | **finale principale** |
+| `13_final.ipynb` | consolidamento pipeline V8 + speech | pre-delivery |
+| `13_final_comments.ipynb` | versione commentata end-to-end della pipeline finale | documentazione |
+| `13_speech.ipynb` | pipeline V8 + speech adapter | sviluppo speech |
 | `ASR_speech_benchmark.ipynb` | benchmark ASR live separato | analisi speech |
+
+> Riferimento esterno: `api_client/NLP_assignment_api_client/PoliMillionaire.ipynb` è il tutorial API ufficiale.
 
 ## Struttura repository
 
@@ -339,18 +343,24 @@ NLP_polimi_26/
 |   `-- NLP_assignment_api_client/
 |       `-- millionaire_client/       # client Python per API PoliMillionaire
 |-- data/
-|   |-- indexes/                      # indici locali, spesso via Git LFS
-|   `-- maths/                        # PDF textbook per indici matematici
+|   |-- chunks/                       # corpus chunkati (jsonl) per gli indici
+|   |-- indexes/                      # indici BM25 e dense HNSW, spesso via Git LFS
+|   |-- kelm/                         # subset KELM
+|   |-- maths/                        # PDF textbook per indici matematici
+|   `-- wiki/                         # dump SimpleWiki
 |-- docs/
 |   |-- assignment/                   # consegna ufficiale
+|   |-- slides/ , tutorials/          # materiale di corso e tutorial
 |   |-- retrieval_indexes.md          # comandi per corpus e indici
 |   `-- kelm_limited.md               # note subset KELM
 |-- logs/                             # CSV e analisi esperimenti
 |-- project/
-|   |-- notebooks/                    # notebook progressivi e finali
+|   |-- notebooks/
+|   |   |-- delivery/                 # notebook finale da consegnare
+|   |   `-- development/              # baseline, ablation, storia sperimentale
 |   `-- src/                          # script corpus, indici, retrieval, tool
 |-- reports/
-|   `-- figures/                      # grafici generati
+|   `-- figures/                      # grafici generati (incl. Final_Pipeline_IMG.png)
 |-- API_README.md
 `-- README.md
 ```
@@ -465,13 +475,6 @@ conda run -n polimillionaire python project/src/query_retrieval_index.py \
 
 ## Logging
 
-I CSV principali sono:
-
-```text
-logs/run_v8.csv
-logs/run_v9_speech.csv
-```
-
 Campi diagnostici rilevanti:
 
 - `competition_name`, `question_id`, `question_level`
@@ -485,29 +488,6 @@ Campi diagnostici rilevanti:
 - `fallback_used`
 - `textbook_context_*`
 - speech-only: transcript, path audio, fetch seconds, ASR seconds, ASR model/device
-
-## Valutazione finale da mostrare
-
-Per la presentazione e la consegna conviene mostrare:
-
-- accuratezza per categoria;
-- livello medio raggiunto;
-- earned amount massimo/medio;
-- latenza media e massima;
-- numero timeout;
-- confronto baseline vs BM25 vs reranker vs RAG+LLM vs tools;
-- esempi di domande risolte con evidenza recuperata;
-- esempi di fallimento, soprattutto Maths difficili, News rumorose e speech ASR.
-
-Metriche minime consigliate:
-
-```text
-accuracy = correct / total questions
-timeout_count = count(timed_out == True)
-avg_latency = mean(latency_seconds)
-max_earned_amount = max(earned_amount)
-avg_level = mean(question_level)
-```
 
 ## Troubleshooting
 
@@ -525,52 +505,6 @@ avg_level = mean(question_level)
 | Speech timeout | ASR + fetch audio consumano budget; caricare e scaldare Whisper prima di iniziare la partita speech. |
 | Speech trascrive male opzioni | Usare gli audio salvati in `speech_audio_v9/` e confrontare `api_options_json` con `speech_options_transcript_json`. |
 
-## Checklist consegna
-
-### Notebook
-
-- [ ] Usare `project/notebooks/13_speech.ipynb` come notebook principale finale.
-- [ ] Includere `project/notebooks/12-v8-clean.ipynb` nello zip come base testuale/ablation, se utile.
-- [ ] Preparare un link OneDrive al notebook o a uno zip con piu notebook.
-- [ ] Non includere dati, indici o dataset nel file consegnato su WeBeep.
-- [ ] Nessuna credenziale hardcoded.
-- [ ] Secrets configurati: `USERNAME`, `PASSWORD`, `HF_TOKEN`, `TAVILY-API-KEY`.
-- [ ] Path Kaggle/Colab documentati.
-- [ ] Log CSV salvati e scaricabili.
-- [ ] Celle di setup, modello, retrieval, routing e run eseguite in ordine.
-- [ ] Solo un membro del gruppo consegna su WeBeep entro martedi 2 giugno 2026.
-- [ ] Inserire nello spreadsheet il link al notebook/zip OneDrive.
-
-### Analisi
-
-- [ ] Tabella metriche per categoria.
-- [ ] Grafici accuracy e latenza.
-- [ ] Confronto fra notebook baseline e finale.
-- [ ] Almeno 3 esempi corretti con evidenza.
-- [ ] Almeno 3 esempi di errore con causa.
-- [ ] Discussione limiti: timeout, ASR, News, OOM, Maths edge cases.
-
-### Video
-
-- [ ] Video da 5 minuti.
-- [ ] Mostrare solo il notebook, senza slide.
-- [ ] Non accelerare il video.
-- [ ] Spiega task e vincoli.
-- [ ] Mostra architettura finale.
-- [ ] Mostra il notebook finale in esecuzione o log reali.
-- [ ] Commenta risultati e trade-off.
-- [ ] Mostra brevemente la modalita speech.
-- [ ] Caricare il video su OneDrive, YouTube o equivalente.
-- [ ] Inserire nello spreadsheet il link al video.
-
-### Presentazione orale
-
-- [ ] Verificare lo slot nello spreadsheet.
-- [ ] Presentarsi almeno 15 minuti prima.
-- [ ] Portare un laptop con notebook caricato.
-- [ ] Tutti i membri devono essere presenti; eventuali assenti giustificati si collegano via Webex.
-- [ ] Sessioni in Room PT3, Building 20A, mercoledi 3 giugno 2026 e venerdi 5 giugno 2026.
-
 ## Riferimenti
 
 1. Lewis et al. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*. ICLR. [arXiv](https://arxiv.org/abs/2005.11401)
@@ -583,6 +517,10 @@ avg_level = mean(question_level)
 8. Lù (2024). *BM25S: Orders of magnitude faster lexical search via eager sparse scoring*. [arXiv](https://arxiv.org/abs/2407.03618)
 9. Qwen Team (2025). *Qwen3 Embedding and Reranker model card*. [Hugging Face](https://huggingface.co/Qwen/Qwen3-Reranker-0.6B)
 
-## Team
+---
 
-NeuroniNegroni: Tommaso, Giulia, Gio.
+<div align="center">
+
+Made with 🍹 by **NeuroniNegroni** — Tommaso · Giulia · Giorgio
+
+</div>

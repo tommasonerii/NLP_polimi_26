@@ -4,17 +4,11 @@ Questo file spiega come usare il client Python fornito nel pacchetto `NLP_assign
 
 ## Dove si trova il client
 
-Il client e nello zip:
+Il client (estratto dallo zip ufficiale `NLP_assignment_api_client.zip` fornito nei tutorial) è versionato nel repo in:
 
 ```text
-docs/Tutorials-20260427/NLP_assignment_api_client.zip
-```
-
-Dentro lo zip ci sono:
-
-```text
-NLP_assignment_api_client/
-|-- PoliMillionaire.ipynb
+api_client/NLP_assignment_api_client/
+|-- PoliMillionaire.ipynb        # tutorial API ufficiale
 `-- millionaire_client/
     |-- __init__.py
     |-- client.py
@@ -25,6 +19,15 @@ NLP_assignment_api_client/
     |-- models.py
     |-- base.py
     `-- exceptions.py
+```
+
+In locale basta aggiungere il parent a `sys.path`:
+
+```python
+import sys
+sys.path.append("api_client/NLP_assignment_api_client")
+
+from millionaire_client import MillionaireClient, AuthenticationError
 ```
 
 Nel progetto finale, in Colab, la cartella `millionaire_client` deve stare nello stesso parent directory del notebook, oppure quel parent directory deve essere aggiunto a `sys.path`.
@@ -173,7 +176,7 @@ Metodo API:
 POST /api/game/start
 ```
 
-Il risultato e un oggetto `GameSession`.
+Il risultato è un oggetto `GameSession`.
 
 Per avviare una partita in modalita vocale:
 
@@ -231,11 +234,11 @@ print(time_left)
 
 Se si risponde troppo tardi, il server puo restituire timeout anche se l'opzione scelta era corretta.
 
-In modalita `speech`, il timer da 30 secondi parte dopo aver richiesto l'audio dell'ultima opzione. Il flusso corretto e quindi: audio domanda, audio opzioni A-D, refresh dello stato, risposta.
+In modalita `speech`, il timer da 30 secondi parte dopo aver richiesto l'audio dell'ultima opzione. Il flusso corretto è quindi: audio domanda, audio opzioni A-D, refresh dello stato, risposta.
 
 ## Modalita speech/audio
 
-La modalita vocale non e uno streaming e non usa MP3. Il client scarica file audio completi via HTTP e ritorna `bytes` grezzi. Le docstring del client indicano WAV, quindi conviene salvarli con estensione `.wav`.
+La modalita vocale non è uno streaming e non usa MP3. Il client scarica file audio completi via HTTP e ritorna `bytes` grezzi. Le docstring del client indicano WAV, quindi conviene salvarli con estensione `.wav`.
 
 Endpoint usati dal client:
 
@@ -255,7 +258,7 @@ option_c_audio = game.fetch_audio_option_next()
 option_d_audio = game.fetch_audio_option_next()
 ```
 
-Le opzioni devono essere richieste in sequenza con `fetch_audio_option_next()`: prima A, poi B, C e D. Dopo che una opzione e stata consegnata, puo essere riascoltata con `fetch_audio_option(index)`, dove `index` e `0` per A, `1` per B, `2` per C, `3` per D.
+Le opzioni devono essere richieste in sequenza con `fetch_audio_option_next()`: prima A, poi B, C e D. Dopo che una opzione è stata consegnata, puo essere riascoltata con `fetch_audio_option(index)`, dove `index` è `0` per A, `1` per B, `2` per C, `3` per D.
 
 Esempio minimo:
 
@@ -310,7 +313,7 @@ Risposta tramite testo esatto dell'opzione:
 result = game.answer_by_text("Paris")
 ```
 
-Attenzione: `answer_by_text` cerca una corrispondenza tra il testo passato e il testo delle opzioni. In genere e piu robusto usare direttamente `option_id`.
+Attenzione: `answer_by_text` cerca una corrispondenza tra il testo passato e il testo delle opzioni. In genere è piu robusto usare direttamente `option_id`.
 
 ## Ciclo partita minimo
 
@@ -342,7 +345,7 @@ while game.in_progress:
 
 ## Integrazione con un modello
 
-La funzione chiave da implementare e una strategia che prende una `Question` e restituisce un `option_id`.
+La funzione chiave da implementare è una strategia che prende una `Question` e restituisce un `option_id`.
 
 ```python
 def answer_strategy(question):
