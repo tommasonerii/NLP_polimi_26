@@ -1,14 +1,14 @@
-# README API PoliMillionaire
+# PoliMillionaire API README
 
-Questo file spiega come usare il client Python fornito nel pacchetto `NLP_assignment_api_client.zip` per interagire con il gioco "Who wants to be a PoliMillionaire?".
+This file explains how to use the Python client provided in the `NLP_assignment_api_client.zip` package to interact with the "Who wants to be a PoliMillionaire?" game.
 
-## Dove si trova il client
+## Where the client is
 
-Il client (estratto dallo zip ufficiale `NLP_assignment_api_client.zip` fornito nei tutorial) è versionato nel repo in:
+The client (extracted from the official `NLP_assignment_api_client.zip` provided in the tutorials) is versioned in the repo at:
 
 ```text
 api_client/NLP_assignment_api_client/
-|-- PoliMillionaire.ipynb        # tutorial API ufficiale
+|-- PoliMillionaire.ipynb        # official API tutorial
 `-- millionaire_client/
     |-- __init__.py
     |-- client.py
@@ -21,7 +21,7 @@ api_client/NLP_assignment_api_client/
     `-- exceptions.py
 ```
 
-In locale basta aggiungere il parent a `sys.path`:
+Locally it is enough to add the parent to `sys.path`:
 
 ```python
 import sys
@@ -30,9 +30,9 @@ sys.path.append("api_client/NLP_assignment_api_client")
 from millionaire_client import MillionaireClient, AuthenticationError
 ```
 
-Nel progetto finale, in Colab, la cartella `millionaire_client` deve stare nello stesso parent directory del notebook, oppure quel parent directory deve essere aggiunto a `sys.path`.
+In the final project, on Colab, the `millionaire_client` folder must be in the same parent directory as the notebook, or that parent directory must be added to `sys.path`.
 
-Esempio consigliato su Google Drive:
+Recommended example on Google Drive:
 
 ```text
 MyDrive/
@@ -62,25 +62,25 @@ if package_parent_dir not in sys.path:
 from millionaire_client import MillionaireClient, AuthenticationError
 ```
 
-## URL del server
+## Server URL
 
-La consegna indica questo endpoint:
+The assignment indicates this endpoint:
 
 ```python
 API_URL = "http://131.175.15.22:51111/"
 ```
 
-Nota: la consegna dice che il sito potrebbe non essere accessibile dalla rete Wi-Fi PoliMi per un blocco sulla porta.
+Note: the assignment says the site may not be accessible from the PoliMi Wi-Fi network due to a block on the port.
 
-## Registrazione e login
+## Registration and login
 
-Prima bisogna registrarsi dal browser sul sito:
+First you must register from the browser on the site:
 
 ```text
 http://131.175.15.22:51111/
 ```
 
-Poi nel notebook si usa il login:
+Then in the notebook you use the login:
 
 ```python
 client = MillionaireClient(API_URL)
@@ -92,26 +92,26 @@ except AuthenticationError as e:
     print(f"Login failed: {e}")
 ```
 
-Metodo usato internamente:
+Method used internally:
 
 ```text
 POST /api/auth/login
 ```
 
-Il client salva automaticamente il cookie di autenticazione nella sessione `requests`.
+The client automatically saves the authentication cookie in the `requests` session.
 
-## Oggetto principale: MillionaireClient
+## Main object: MillionaireClient
 
-`MillionaireClient` espone quattro moduli:
+`MillionaireClient` exposes four modules:
 
 ```python
-client.auth          # autenticazione
-client.competitions  # competizioni disponibili
-client.game          # partite e risposte
-client.leaderboard   # classifiche
+client.auth          # authentication
+client.competitions  # available competitions
+client.game          # games and answers
+client.leaderboard   # leaderboards
 ```
 
-Ha anche shortcut comodi:
+It also has handy shortcuts:
 
 ```python
 client.login(username, password)
@@ -120,16 +120,16 @@ client.user
 client.is_authenticated
 ```
 
-Il modulo `game` supporta due modalita:
+The `game` module supports two modes:
 
 ```text
-text    # default: domanda e opzioni testuali
-speech  # domanda e opzioni come audio WAV scaricato dal server
+text    # default: text question and options
+speech  # question and options as WAV audio downloaded from the server
 ```
 
-## Competizioni
+## Competitions
 
-Per vedere le competizioni disponibili:
+To see the available competitions:
 
 ```python
 competitions = client.competitions.list_all()
@@ -138,13 +138,13 @@ for comp in competitions:
     print(comp.id, comp.name, comp.max_levels)
 ```
 
-Metodo API:
+API method:
 
 ```text
 GET /api/competitions
 ```
 
-Per ottenere la configurazione dettagliata:
+To get the detailed configuration:
 
 ```python
 config = client.competitions.get_config(competition_id=1)
@@ -153,13 +153,13 @@ print(config.max_levels)
 print(config.money_pyramid)
 ```
 
-Metodo API:
+API method:
 
 ```text
 GET /api/competitions/{competition_id}/config
 ```
 
-## Avviare una partita
+## Starting a game
 
 ```python
 comp_id = 1
@@ -170,15 +170,15 @@ print(game.current_level)
 print(game.earned_amount)
 ```
 
-Metodo API:
+API method:
 
 ```text
 POST /api/game/start
 ```
 
-Il risultato è un oggetto `GameSession`.
+The result is a `GameSession` object.
 
-Per avviare una partita in modalita vocale:
+To start a game in voice mode:
 
 ```python
 game = client.game.start(competition_id=comp_id, mode="speech")
@@ -187,14 +187,14 @@ print(game.session_id)
 print(game.mode)  # "speech"
 ```
 
-Nel body della richiesta il client invia anche `mode`:
+In the request body the client also sends `mode`:
 
 ```text
 POST /api/game/start
 {"competitionId": 1, "mode": "speech"}
 ```
 
-## Leggere la domanda corrente
+## Reading the current question
 
 ```python
 question = game.current_question
@@ -207,40 +207,40 @@ for opt in question.options:
     print(opt.id, opt.text)
 ```
 
-Campi principali:
+Main fields:
 
 ```text
-question.id       # id domanda
-question.text     # testo domanda
-question.level    # livello
-question.options  # lista di Option
+question.id       # question id
+question.text     # question text
+question.level    # level
+question.options  # list of Option
 ```
 
-Ogni `Option` ha:
+Each `Option` has:
 
 ```text
 opt.id
 opt.text
 ```
 
-## Tempo disponibile
+## Available time
 
-Ogni domanda ha un timeout, indicato nella consegna come massimo 30 secondi.
+Each question has a timeout, indicated in the assignment as a maximum of 30 seconds.
 
 ```python
 time_left = game.time_remaining
 print(time_left)
 ```
 
-Se si risponde troppo tardi, il server puo restituire timeout anche se l'opzione scelta era corretta.
+If you answer too late, the server can return a timeout even if the chosen option was correct.
 
-In modalita `speech`, il timer da 30 secondi parte dopo aver richiesto l'audio dell'ultima opzione. Il flusso corretto è quindi: audio domanda, audio opzioni A-D, refresh dello stato, risposta.
+In `speech` mode, the 30-second timer starts after requesting the audio of the last option. The correct flow is therefore: question audio, options A-D audio, state refresh, answer.
 
-## Modalita speech/audio
+## Speech/audio mode
 
-La modalita vocale non è uno streaming e non usa MP3. Il client scarica file audio completi via HTTP e ritorna `bytes` grezzi. Le docstring del client indicano WAV, quindi conviene salvarli con estensione `.wav`.
+The voice mode is not a stream and does not use MP3. The client downloads complete audio files over HTTP and returns raw `bytes`. The client docstrings indicate WAV, so it is best to save them with the `.wav` extension.
 
-Endpoint usati dal client:
+Endpoints used by the client:
 
 ```text
 GET /api/game/{session_id}/audio/question
@@ -248,7 +248,7 @@ GET /api/game/{session_id}/audio/option/next
 GET /api/game/{session_id}/audio/option/{index}
 ```
 
-Metodi Python:
+Python methods:
 
 ```python
 question_audio = game.fetch_audio_question()
@@ -258,9 +258,9 @@ option_c_audio = game.fetch_audio_option_next()
 option_d_audio = game.fetch_audio_option_next()
 ```
 
-Le opzioni devono essere richieste in sequenza con `fetch_audio_option_next()`: prima A, poi B, C e D. Dopo che una opzione è stata consegnata, puo essere riascoltata con `fetch_audio_option(index)`, dove `index` è `0` per A, `1` per B, `2` per C, `3` per D.
+The options must be requested in sequence with `fetch_audio_option_next()`: first A, then B, C, and D. After an option has been delivered, it can be replayed with `fetch_audio_option(index)`, where `index` is `0` for A, `1` for B, `2` for C, `3` for D.
 
-Esempio minimo:
+Minimal example:
 
 ```python
 from pathlib import Path
@@ -285,42 +285,42 @@ answer_letter = "A"
 result = game.answer(option_map[answer_letter])
 ```
 
-Smoke test locale:
+Local smoke test:
 
 ```powershell
 C:\ProgramData\miniconda3\python.exe project/src/test_client_voice_mode.py --competition-id 0 --options 4 --test-replay --play --leaderboard
 ```
 
-Lo script salva i WAV in `artifacts/voice_mode/`. Di default non invia risposte; per inviare una risposta aggiungere `--answer-letter A`.
+The script saves the WAVs in `artifacts/voice_mode/`. By default it does not submit answers; to submit an answer add `--answer-letter A`.
 
-## Rispondere
+## Answering
 
-Risposta tramite id dell'opzione:
+Answer via option id:
 
 ```python
 result = game.answer(option_id=question.options[0].id)
 ```
 
-Metodo API:
+API method:
 
 ```text
 POST /api/game/{session_id}/answer
 ```
 
-Risposta tramite testo esatto dell'opzione:
+Answer via the exact option text:
 
 ```python
 result = game.answer_by_text("Paris")
 ```
 
-Attenzione: `answer_by_text` cerca una corrispondenza tra il testo passato e il testo delle opzioni. In genere è piu robusto usare direttamente `option_id`.
+Warning: `answer_by_text` looks for a match between the passed text and the option text. It is generally more robust to use `option_id` directly.
 
-## Ciclo partita minimo
+## Minimal game loop
 
 ```python
 def choose_answer(question):
-    # Baseline: sceglie sempre la prima opzione.
-    # Da sostituire con il modello.
+    # Baseline: always picks the first option.
+    # To be replaced with the model.
     return question.options[0].id
 
 game = client.game.start(competition_id=1)
@@ -343,9 +343,9 @@ while game.in_progress:
     print("Earned:", result.earned_amount)
 ```
 
-## Integrazione con un modello
+## Integration with a model
 
-La funzione chiave da implementare è una strategia che prende una `Question` e restituisce un `option_id`.
+The key function to implement is a strategy that takes a `Question` and returns an `option_id`.
 
 ```python
 def answer_strategy(question):
@@ -361,7 +361,7 @@ Return only the id of the correct option.
     return int(predicted_id)
 ```
 
-Nel progetto reale conviene validare l'output:
+In the real project it is best to validate the output:
 
 ```python
 def safe_answer_strategy(question):
@@ -376,7 +376,7 @@ def safe_answer_strategy(question):
 
 ## Leaderboard
 
-Per leggere la classifica:
+To read the leaderboard:
 
 ```python
 lb = client.leaderboard.get(competition_id=1, limit=10)
@@ -385,20 +385,20 @@ for i, entry in enumerate(lb.entries, 1):
     print(i, entry.username, entry.score, entry.reached_level)
 ```
 
-Per la classifica speech:
+For the speech leaderboard:
 
 ```python
 lb = client.leaderboard.get(competition_id=1, limit=10, mode="speech")
 ```
 
-Metodo API:
+API method:
 
 ```text
 GET /api/leaderboard/{competition_id}?limit=10&mode=text
 GET /api/leaderboard/{competition_id}?limit=10&mode=speech
 ```
 
-Campi principali di una entry:
+Main fields of an entry:
 
 ```text
 entry.username
@@ -408,9 +408,9 @@ entry.finished_at
 entry.total_trials
 ```
 
-## Errori gestiti dal client
+## Errors handled by the client
 
-Il pacchetto definisce queste eccezioni:
+The package defines these exceptions:
 
 ```python
 from millionaire_client import (
@@ -425,7 +425,7 @@ from millionaire_client import (
 )
 ```
 
-Uso consigliato:
+Recommended usage:
 
 ```python
 try:
@@ -436,9 +436,9 @@ except MillionaireError as e:
     print("API error:", e)
 ```
 
-## Logging consigliato per il progetto
+## Recommended logging for the project
 
-Per poter fare una buona analisi finale, salvare almeno:
+To be able to do a good final analysis, save at least:
 
 ```text
 session_id
@@ -460,7 +460,7 @@ retrieved_context
 error_message
 ```
 
-Per run speech aggiungere anche:
+For speech runs also add:
 
 ```text
 mode
@@ -470,7 +470,7 @@ audio_fetch_latency_seconds
 time_remaining_after_audio
 ```
 
-Esempio:
+Example:
 
 ```python
 import time
@@ -500,12 +500,12 @@ logs.append({
 })
 ```
 
-## Note pratiche
+## Practical notes
 
-- Non fare molte richieste consecutive troppo velocemente: la consegna chiede esplicitamente di evitare carichi eccessivi sul server.
-- Rispondere entro 30 secondi e parte del task: misurare sempre la latenza del modello.
-- In modalita `speech`, misurare separatamente il tempo di fetch audio e la latenza del modello; il timer parte dopo l'ultima opzione audio.
-- L'audio del client e WAV restituito come bytes completi, non streaming; salvarlo su disco prima di riprodurlo o analizzarlo.
-- Usare `option_id` e non il testo quando possibile.
-- Tenere password e token fuori dal notebook condiviso; in Colab usare i secrets.
-- Il notebook consegnato deve spiegare chiaramente modello, prompt, retrieval, valutazione e limiti.
+- Do not make many consecutive requests too quickly: the assignment explicitly asks to avoid excessive load on the server.
+- Answering within 30 seconds is part of the task: always measure the model latency.
+- In `speech` mode, measure separately the audio fetch time and the model latency; the timer starts after the last audio option.
+- The client audio is WAV returned as complete bytes, not streaming; save it to disk before playing or analyzing it.
+- Use `option_id` and not the text when possible.
+- Keep passwords and tokens out of the shared notebook; on Colab use the secrets.
+- The delivered notebook must clearly explain the model, prompt, retrieval, evaluation, and limitations.

@@ -1,101 +1,101 @@
 # 🍹 PoliMillionaire NLP 2026
 
-> **Who Wants to Be a PoliMillionaire?** — un agente RAG che gioca al quiz usando solo modelli open-weights eseguiti in locale.
+> **Who Wants to Be a PoliMillionaire?** — a RAG agent that plays the quiz using only open-weights models running locally.
 
 <div align="center">
 
 ### 👥 Team **NeuroniNegroni**
 
-| Membro | GitHub |
+| Member | GitHub |
 | :-- | :-- |
 | **Giulia Mengoli** | [@giulimengo](https://github.com/giulimengo) |
 | **Giorgio Monaco** | [@giorgiomonaco](https://github.com/giorgiomonaco) |
 | **Tommaso Neri** | [@tommasonerii](https://github.com/tommasonerii) |
 
-*Progetto del corso di Natural Language Processing — A.A. 2025/26 @ Politecnico di Milano*
+*Natural Language Processing course project — A.Y. 2025/26 @ Politecnico di Milano*
 
 </div>
 
 ---
 
-Il sistema gioca a **Who Wants to Be a PoliMillionaire?** usando modelli open-weights eseguiti localmente. La soluzione finale combina retrieval augmented generation, reranking neurale, tool deterministici per matematica, fonti esterne non generative per domande recenti e una variante speech con ASR locale.
+The system plays **Who Wants to Be a PoliMillionaire?** using open-weights models running locally. The final solution combines retrieval augmented generation, neural reranking, deterministic tools for mathematics, non-generative external sources for recent questions, and a speech variant with local ASR.
 
-## Versione finale
+## Final version
 
-Il notebook principale finale da consegnare e presentare è:
+The main final notebook to deliver and present is:
 
 ```text
 project/notebooks/delivery/notebook_final.ipynb
 ```
 
-Questo notebook include la pipeline testuale finale e la sua estensione speech. La base testuale, utile come riferimento e ablation, è:
+This notebook includes the final text pipeline and its speech extension. The text base, useful as a reference and for ablation, is:
 
 ```text
 project/notebooks/development/12-v8-clean.ipynb
 ```
 
-`notebook_final.ipynb` parte dalla pipeline di `12-v8-clean.ipynb` e aggiunge solo l'adapter speech: scarica gli audio WAV dal server, trascrive domanda e opzioni con Whisper, costruisce una domanda testuale compatibile e richiama la stessa `answer_strategy`.
+`notebook_final.ipynb` starts from the pipeline of `12-v8-clean.ipynb` and only adds the speech adapter: it downloads the WAV audio from the server, transcribes the question and options with Whisper, builds a compatible text question, and calls the same `answer_strategy`.
 
-I notebook `00-12_V7` restano come baseline, ablation e storia sperimentale.
+The `00-12_V7` notebooks remain as baselines, ablations, and experimental history.
 
-## Vincoli dell'assignment
+## Assignment constraints
 
-- Nessuna API LLM esterna per generare risposte.
-- Solo modelli open-weights eseguiti localmente.
-- RAG ammesso e incoraggiato.
-- API esterne ammesse solo se restituiscono contenuto grezzo, non risposte generate.
-- Tool agentici e calcolo simbolico ammessi.
-- Timeout di circa 30 secondi per domanda.
-- Evitare richieste troppo ravvicinate al server.
-- Confrontare piu soluzioni, modelli, prompt e architetture.
+- No external LLM API for generating answers.
+- Only open-weights models running locally.
+- RAG allowed and encouraged.
+- External APIs allowed only if they return raw content, not generated answers.
+- Agentic tools and symbolic computation allowed.
+- Timeout of about 30 seconds per question.
+- Avoid requests too close together to the server.
+- Compare multiple solutions, models, prompts, and architectures.
 
-La consegna ufficiale è in [docs/assignment/GroupAssignment2026.docx](docs/assignment/GroupAssignment2026.docx).
+The official assignment is in [docs/assignment/GroupAssignment2026.docx](docs/assignment/GroupAssignment2026.docx).
 
-## Stack finale
+## Final stack
 
-| Componente | Scelta finale |
+| Component | Final choice |
 | --- | --- |
-| Notebook principale | `project/notebooks/delivery/notebook_final.ipynb` |
-| Base testuale | `project/notebooks/development/12-v8-clean.ipynb` |
+| Main notebook | `project/notebooks/delivery/notebook_final.ipynb` |
+| Text base | `project/notebooks/development/12-v8-clean.ipynb` |
 | LLM answer/reasoning | `Qwen_Qwen3.5-9B-Q8_0.gguf` via `llama-cpp-python` |
 | GGUF repo | `bartowski/Qwen_Qwen3.5-9B-GGUF` |
 | Reranker | `Qwen/Qwen3-Reranker-0.6B` |
-| Embedding dense | `sentence-transformers/multi-qa-MiniLM-L6-cos-v1` |
+| Dense embedding | `sentence-transformers/multi-qa-MiniLM-L6-cos-v1` |
 | Sparse retrieval | BM25/BM25S |
 | Dense retrieval | HNSW |
-| Corpora locali | SimpleWiki, KELM, textbook matematici |
-| Fonti esterne | Wikipedia API, Google News RSS, Tavily |
-| Maths | tool validati, SymPy/Python executor, Micro-CoT fallback |
+| Local corpora | SimpleWiki, KELM, math textbooks |
+| External sources | Wikipedia API, Google News RSS, Tavily |
+| Maths | validated tools, SymPy/Python executor, Micro-CoT fallback |
 | Speech ASR | `openai/whisper-large-v3-turbo` |
-| Output vincolato | GBNF single digit `0-3`, parser `FINAL_CHOICE`, matching opzioni |
+| Constrained output | GBNF single digit `0-3`, `FINAL_CHOICE` parser, option matching |
 
-## Risultati osservati
+## Observed results
 
-I log nel repository nella modalità text, mostrano almeno una run a **$1,024,000** per ogni categoria. Il miglioramento piu importante del è su **Maths**, dove `logs/run_v8.csv` arriva a $1,024,000 con 98 righe, 79 corrette, accuracy 80.6%, latenza media 12.27s e 0 timeout.
+The logs in the repository, in text mode, show at least one run at **$1,024,000** for each category. The most important improvement is on **Maths**, where `logs/run_v8.csv` reaches $1,024,000 with 98 rows, 79 correct, 80.6% accuracy, 12.27s average latency, and 0 timeouts.
 
-| Categoria | Best earning osservato | Log di riferimento |
+| Category | Best observed earning | Reference log |
 | --- | ---: | --- |
 | Entertainment | $1,024,000 | `logs/run_qwen35_gguf_all_competitions.csv`, `logs/run_v5.csv` |
 | Ancient History and Politics | $1,024,000 | `logs/run_qwen35_gguf_agentic_tools_v3_all_competitions.csv`, `logs/run_qwen35_gguf_validated_tools_option_retrieval_v2.csv` |
-| Science and Nature | $1,024,000 | diversi log RAG/GGUF |
+| Science and Nature | $1,024,000 | various RAG/GGUF logs |
 | Philosophy and Psychology | $1,024,000 | `logs/run_qwen35_q8_qwen3reranker06b_external_bm25s_v6.csv` |
 | News | $1,024,000 | `logs/run_qwen35_gguf_validated_tools_option_retrieval_v4.csv` |
 | Maths | $1,024,000 | `logs/run_12_V3_math_1M.csv`, `logs/run_v8.csv` |
 
-La modalita speech è funzionante ma piu sperimentale: `logs/run_v9_speech.csv` mostra che il collo di bottiglia è ASR + timeout server, non la pipeline testuale sottostante. Il notebook salva anche gli audio in `speech_audio_v9/` per analisi degli errori di trascrizione.
+The speech mode is functional but more experimental: `logs/run_v9_speech.csv` shows that the bottleneck is ASR + server timeout, not the underlying text pipeline. The notebook also saves the audio in `speech_audio_v9/` for analysis of transcription errors.
 
-## Quick Start finale
+## Final Quick Start
 
 ### Kaggle
 
-I notebook finali sono pensati per Kaggle con due GPU T4 e due dataset di input:
+The final notebooks are designed for Kaggle with two T4 GPUs and two input datasets:
 
 ```text
 /kaggle/input/datasets/giorgiomonacoo/nlp2026
 /kaggle/input/datasets/tommasonerii/indexes-nlp26
 ```
 
-Configurare i secrets Kaggle:
+Configure the Kaggle secrets:
 
 ```text
 USERNAME
@@ -104,22 +104,22 @@ HF_TOKEN
 TAVILY-API-KEY
 ```
 
-Per la consegna finale, eseguire `project/notebooks/delivery/notebook_final.ipynb` dall'inizio. Il notebook:
+For the final delivery, run `project/notebooks/delivery/notebook_final.ipynb` from the start. The notebook:
 
-1. installa dipendenze minime;
-2. rileva ambiente Kaggle/Colab/local;
-3. copia gli indici in working storage;
-4. scarica e valida il GGUF Qwen3.5 Q8;
-5. carica embedding model, BM25/HNSW e reranker Qwen3;
-6. carica tool Maths, retrieval esterno e routing policy;
-7. esegue le celle per categoria e appende i risultati testuali nei logs;
-8. nelle celle speech finali, carica Whisper e salva risultati speech.
+1. installs minimal dependencies;
+2. detects the Kaggle/Colab/local environment;
+3. copies the indexes to working storage;
+4. downloads and validates the Qwen3.5 Q8 GGUF;
+5. loads the embedding model, BM25/HNSW, and the Qwen3 reranker;
+6. loads the Maths tools, external retrieval, and routing policy;
+7. runs the per-category cells and appends the text results to the logs;
+8. in the final speech cells, loads Whisper and saves the speech results.
 
-### Colab o locale
+### Colab or local
 
-Il progetto supporta anche Colab/local, ma Kaggle e l'ambiente piu stabile per la consegna finale perche separa chiaramente dataset read-only e output in `/kaggle/working`.
+The project also supports Colab/local, but Kaggle is the most stable environment for the final delivery because it clearly separates read-only datasets and output in `/kaggle/working`.
 
-Se si usa Colab, copiare su Drive:
+If using Colab, copy to Drive:
 
 ```text
 MyDrive/nlp26/
@@ -128,14 +128,14 @@ MyDrive/nlp26/
 |-- api_client/NLP_assignment_api_client/
 |-- project/src/
 |-- data/indexes/
-`-- data/chunks/ o corpus necessari
+`-- data/chunks/ or the needed corpora
 ```
 
-Usare Colab/Kaggle secrets, non credenziali hardcoded.
+Use Colab/Kaggle secrets, not hardcoded credentials.
 
-## Architettura finale
+## Final architecture
 
-Diagramma riassuntivo:
+Summary diagram:
 
 ![Final pipeline](reports/figures/Final_Pipeline_IMG.png)
 
@@ -187,7 +187,7 @@ API answer + CSV logging
 
 ### Speech adapter
 
-L'adapter speech (integrato in `notebook_final.ipynb`, sviluppato in `development/13_speech.ipynb`) mantiene invariata la pipeline testuale:
+The speech adapter (integrated in `notebook_final.ipynb`, developed in `development/13_speech.ipynb`) keeps the text pipeline unchanged:
 
 ```text
 Speech game WAV audio
@@ -205,176 +205,176 @@ V8 answer_strategy
 API answer + speech metadata logging
 ```
 
-Il log speech aggiunge transcript, path audio, tempi di fetch, tempi ASR e device ASR.
+The speech log adds the transcript, audio paths, fetch times, ASR times, and ASR device.
 
-## Componenti principali
+## Main components
 
-### Retrieval locale
+### Local retrieval
 
-- SimpleWiki: conoscenza enciclopedica breve.
-- KELM: asserzioni strutturate utili per domande fattive.
-- Textbook matematici: statistica, algebra, calcolo, discreta, analisi, topologia.
-- BM25 per recall lessicale rapido.
-- HNSW dense search per similarita semantica.
-- Reciprocal Rank Fusion per unire ranking sparse/dense.
-- Qwen3-Reranker per riordinare i candidati finali.
+- SimpleWiki: short encyclopedic knowledge.
+- KELM: structured assertions useful for factual questions.
+- Math textbooks: statistics, algebra, calculus, discrete math, analysis, topology.
+- BM25 for fast lexical recall.
+- HNSW dense search for semantic similarity.
+- Reciprocal Rank Fusion to merge sparse/dense rankings.
+- Qwen3-Reranker to reorder the final candidates.
 
-### Retrieval esterno
+### External retrieval
 
-Le fonti esterne non generano risposte: restituiscono testo grezzo che viene poi valutato localmente.
+External sources do not generate answers: they return raw text that is then evaluated locally.
 
-- Wikipedia API: usata soprattutto per Entertainment e Ancient History/Politics.
-- Google News RSS: usata per News, con decodifica degli URL e fetch del corpo articolo.
-- Tavily: usato come seconda fonte raw per aumentare copertura su News e knowledge.
+- Wikipedia API: used mostly for Entertainment and Ancient History/Politics.
+- Google News RSS: used for News, with URL decoding and article body fetching.
+- Tavily: used as a second raw source to increase coverage on News and knowledge.
 
 ### Maths
 
-Il ramo Maths evita di dipendere subito dal modello:
+The Maths branch avoids depending on the model right away:
 
-1. pattern e tool deterministici validati;
-2. matching numerico/testuale verso le opzioni;
-3. Python executor sandbox con SymPy/math/Fraction/NormalDist;
-4. Micro-CoT Qwen locale con output vincolato.
+1. validated deterministic patterns and tools;
+2. numeric/text matching against the options;
+3. sandboxed Python executor with SymPy/math/Fraction/NormalDist;
+4. local Qwen Micro-CoT with constrained output.
 
-Il router JSON LLM rimane nel codice come baseline/ablation, ma nel routing i tool deterministici sono privilegiati per latenza e robustezza.
+The LLM JSON router remains in the code as a baseline/ablation, but in routing the deterministic tools are preferred for latency and robustness.
 
-### Output e parsing
+### Output and parsing
 
-- Quando supportato da `llama-cpp-python`, il notebook usa GBNF `root ::= [0-3]` per forzare un singolo option id.
-- I fallback Maths usano `FINAL_CHOICE`.
-- Il parser prova anche match testuale e numerico con le opzioni.
-- Il CSV logga raw output, strategia, confidenza, fallback, tool trace e contesto recuperato.
+- When supported by `llama-cpp-python`, the notebook uses GBNF `root ::= [0-3]` to force a single option id.
+- The Maths fallbacks use `FINAL_CHOICE`.
+- The parser also tries textual and numeric matching with the options.
+- The CSV logs raw output, strategy, confidence, fallback, tool trace, and retrieved context.
 
-## Modelli ed evoluzione
+## Models and evolution
 
-### Modelli usati
+### Models used
 
-| Modello / tecnica | Uso nel progetto | Punti deboli osservati |
+| Model / technique | Use in the project | Observed weaknesses |
 | --- | --- | --- |
-| First-option baseline | Baseline minima: sceglie sempre la prima opzione e verifica API/logging end-to-end. | Accuracy casuale, nessuna comprensione, utile solo per testare il client e i CSV. |
-| TF-IDF | Primo retrieval lessicale su SimpleWiki/KELM. | Molto sensibile alle parole esatte; fallisce su parafrasi, domande recenti e opzioni semanticamente vicine. |
-| BM25 | Retrieval sparse piu robusto di TF-IDF, usato su SimpleWiki, KELM e textbook. | Ancora lessicale: premia overlap superficiale e puo recuperare documenti fuori contesto. |
-| BM25S | Variante veloce per indicizzare al volo documenti esterni o corpus piccoli. | Dipende dalla qualita dei documenti recuperati; se la fonte esterna e rumorosa, indicizza rumore. |
-| `cross-encoder/ms-marco-MiniLM-L6-v2` | Primo reranker neurale nei notebook 05-06. | Economico ma non abbastanza forte per domande complesse e contesti lunghi. |
-| `sentence-transformers/multi-qa-MiniLM-L6-cos-v1` | Embedding dense per HNSW e retrieval semantico. | Migliora recall semantico, ma da solo non decide la risposta e puo recuperare passaggi semanticamente vicini ma non risolutivi. |
-| HNSW | Indice approximate nearest neighbor per ricerca dense veloce. | Richiede indici precomputati e metadati coerenti; la qualita dipende dagli embedding. |
-| `Qwen/Qwen2.5-0.5B/1.5B-Instruct` | Esperimenti iniziali con LLM piccolo e tool-router in Colab. | Troppo debole per reasoning affidabile e output strutturato sotto timeout. |
-| `Qwen_Qwen3.5-9B-Q6_K_L.gguf` | Primo LLM locale forte per RAG e Maths. | Buon compromesso memoria/velocita, ma meno accurato del Q8 e piu fragile su calcoli o output vincolati. |
-| `Qwen_Qwen3.5-9B-Q8_0.gguf` | LLM finale per reasoning, scelta opzione e fallback. | Piu pesante in VRAM/disk; richiede setup llama.cpp corretto e puo comunque sbagliare se il retrieval e rumoroso. |
-| `Qwen/Qwen3-Reranker-0.6B` | Reranker finale per candidati locali e fonti esterne. | Costoso rispetto a MiniLM; su singola T4 compete con il GGUF per GPU/latency. |
-| SymPy / Python executor | Calcolo deterministico per Maths: equazioni, probabilita, algebra, statistica. | Serve parsing robusto della domanda; fallisce se il testo e ambiguo o se il problema richiede concetti non codificati. |
-| Wikipedia API | Fonte esterna grezza per Entertainment e History. | Omonimie e pagine correlate possono distrarre; serve query generation e reranking conservativo. |
-| Google News RSS | Fonte primaria per News recenti. | Articoli non sempre accessibili, titoli piu informativi del corpo, redirect e contenuto HTML rumoroso. |
-| Tavily | Fonte raw alternativa per News e knowledge. | Copertura utile ma non garantita; puo restituire risultati correlati invece della notizia esatta. |
-| `openai/whisper-large-v3-turbo` | ASR finale per modalita speech. | Aggiunge latenza e puo trascrivere male matematica, nomi propri e opzioni brevi. |
+| First-option baseline | Minimal baseline: always picks the first option and verifies the API/logging end-to-end. | Random accuracy, no understanding, useful only to test the client and the CSVs. |
+| TF-IDF | First lexical retrieval over SimpleWiki/KELM. | Very sensitive to exact words; fails on paraphrases, recent questions, and semantically close options. |
+| BM25 | Sparse retrieval more robust than TF-IDF, used on SimpleWiki, KELM, and textbooks. | Still lexical: rewards shallow overlap and can retrieve out-of-context documents. |
+| BM25S | Fast variant to index external documents or small corpora on the fly. | Depends on the quality of the retrieved documents; if the external source is noisy, it indexes noise. |
+| `cross-encoder/ms-marco-MiniLM-L6-v2` | First neural reranker in notebooks 05-06. | Cheap but not strong enough for complex questions and long contexts. |
+| `sentence-transformers/multi-qa-MiniLM-L6-cos-v1` | Dense embedding for HNSW and semantic retrieval. | Improves semantic recall, but on its own does not decide the answer and can retrieve semantically close but non-resolving passages. |
+| HNSW | Approximate nearest neighbor index for fast dense search. | Requires precomputed indexes and consistent metadata; quality depends on the embeddings. |
+| `Qwen/Qwen2.5-0.5B/1.5B-Instruct` | Initial experiments with a small LLM and tool-router in Colab. | Too weak for reliable reasoning and structured output under timeout. |
+| `Qwen_Qwen3.5-9B-Q6_K_L.gguf` | First strong local LLM for RAG and Maths. | Good memory/speed compromise, but less accurate than Q8 and more fragile on computations or constrained output. |
+| `Qwen_Qwen3.5-9B-Q8_0.gguf` | Final LLM for reasoning, option choice, and fallback. | Heavier in VRAM/disk; requires a correct llama.cpp setup and can still be wrong if the retrieval is noisy. |
+| `Qwen/Qwen3-Reranker-0.6B` | Final reranker for local candidates and external sources. | Costly compared to MiniLM; on a single T4 it competes with the GGUF for GPU/latency. |
+| SymPy / Python executor | Deterministic computation for Maths: equations, probability, algebra, statistics. | Needs robust parsing of the question; fails if the text is ambiguous or if the problem requires concepts not coded. |
+| Wikipedia API | Raw external source for Entertainment and History. | Homonyms and related pages can distract; needs query generation and conservative reranking. |
+| Google News RSS | Primary source for recent News. | Articles not always accessible, titles more informative than the body, redirects, and noisy HTML content. |
+| Tavily | Alternative raw source for News and knowledge. | Useful but not guaranteed coverage; can return related results instead of the exact news. |
+| `openai/whisper-large-v3-turbo` | Final ASR for speech mode. | Adds latency and can mis-transcribe math, proper names, and short options. |
 
-### Evoluzione sperimentale
+### Experimental evolution
 
-| Step | Cosa cambia | Perche serviva | Limite che ha portato allo step successivo |
+| Step | What changes | Why it was needed | Limitation that led to the next step |
 | --- | --- | --- | --- |
-| `00` | Smoke test API e first-option logging. | Verificare login, start game, answer submit e CSV. | Non risolve il task, serve solo come baseline. |
-| `01-04` | TF-IDF/BM25 su SimpleWiki e KELM, senza LLM. | Capire quanto basta il retrieval lessicale. | Recupera evidenza ma non ragiona bene sulle opzioni; scarsa robustezza semantica. |
-| `05` | Aggiunta reranker MiniLM/BERT. | Riordinare i documenti recuperati da BM25. | Migliora il ranking, ma senza LLM manca una vera decisione contestuale. |
-| `06` | Primo LLM piccolo Qwen + tool-router Maths. | Far scegliere l'opzione al modello e provare tool strutturati. | Modello piccolo instabile; JSON/tool call fragili. |
-| `07` | Costruzione indici dense HNSW. | Aumentare recall semantico oltre l'overlap lessicale. | Dense retrieval aiuta ma va fuso e rerankato. |
-| `08` | Hybrid RAG con Qwen3.5-9B GGUF. | Passaggio a LLM locale forte con BM25+dense+RRF. | Maths e output parsing restano fragili. |
-| `09-11` | Tool Maths, router JSON e hardening. | Coprire calcoli ricorrenti con SymPy/tool invece che solo LLM. | Router troppo permissivo o costoso; molti edge case matematici non coperti. |
-| `12` / `12_V2` | Validated tools, option-wise retrieval, GBNF. | Rendere output e tool call piu controllabili. | News e domande recenti non coperte dal corpus statico; Maths ancora incompleto. |
-| `12_V3` / `12_V4` | Analysis-first Maths, Micro-CoT, News/Tavily. | Dare al modello un minimo spazio di ragionamento e aggiungere fonti recenti. | Fonti esterne rumorose e mapping News fragile. |
-| `12_V5*` | Unified retrieval e answer-first micro-reasoning. | Evitare troncamenti: risposta prima, ragione dopo. | Ottimo su knowledge, ma Maths ancora richiede tool piu mirati. |
-| `12_V6` / `12_V7` | Qwen3-Reranker, external retrieval piu controllato, anti-trap News. | Migliorare fonti esterne e ridurre distrazioni. | La raccomandazione V7 e superata dal lavoro finale V8. |
-| `12-v8-maths` | Esperimenti dedicati al ramo Maths. | Portare Maths a livello competitivo con fix e tool/fallback piu mirati. | Notebook sperimentale, non pulito come deliverable principale. |
-| `12-v8-clean` | Consolidamento finale della pipeline testuale. | Riunire le parti migliori in un notebook piu lineare e usabile per consegna. | Non include speech; quello e separato in V13. |
-| `13_speech` | Adapter speech sopra V8 con Whisper large-v3-turbo. | Supportare la modalita vocale senza cambiare il decision engine. | ASR e fetch audio consumano tempo; matematica parlata e opzioni brevi restano difficili. |
+| `00` | API smoke test and first-option logging. | Verify login, start game, answer submit, and CSV. | Does not solve the task, serves only as a baseline. |
+| `01-04` | TF-IDF/BM25 over SimpleWiki and KELM, without LLM. | Understand how far lexical retrieval gets. | Retrieves evidence but does not reason well on the options; poor semantic robustness. |
+| `05` | Added MiniLM/BERT reranker. | Reorder the documents retrieved by BM25. | Improves the ranking, but without an LLM there is no real contextual decision. |
+| `06` | First small Qwen LLM + Maths tool-router. | Let the model choose the option and try structured tools. | Small model unstable; fragile JSON/tool calls. |
+| `07` | Building dense HNSW indexes. | Increase semantic recall beyond lexical overlap. | Dense retrieval helps but must be fused and reranked. |
+| `08` | Hybrid RAG with Qwen3.5-9B GGUF. | Move to a strong local LLM with BM25+dense+RRF. | Maths and output parsing remain fragile. |
+| `09-11` | Maths tools, JSON router, and hardening. | Cover recurring computations with SymPy/tools instead of only the LLM. | Router too permissive or costly; many math edge cases not covered. |
+| `12` / `12_V2` | Validated tools, option-wise retrieval, GBNF. | Make output and tool calls more controllable. | News and recent questions not covered by the static corpus; Maths still incomplete. |
+| `12_V3` / `12_V4` | Analysis-first Maths, Micro-CoT, News/Tavily. | Give the model a minimal reasoning space and add recent sources. | Noisy external sources and fragile News mapping. |
+| `12_V5*` | Unified retrieval and answer-first micro-reasoning. | Avoid truncation: answer first, reason after. | Excellent on knowledge, but Maths still requires more targeted tools. |
+| `12_V6` / `12_V7` | Qwen3-Reranker, more controlled external retrieval, anti-trap News. | Improve external sources and reduce distractions. | The V7 recommendation is superseded by the final V8 work. |
+| `12-v8-maths` | Experiments dedicated to the Maths branch. | Bring Maths to a competitive level with more targeted fixes and tools/fallbacks. | Experimental notebook, not as clean as the main deliverable. |
+| `12-v8-clean` | Final consolidation of the text pipeline. | Bring together the best parts in a more linear notebook usable for delivery. | Does not include speech; that is separate in V13. |
+| `13_speech` | Speech adapter on top of V8 with Whisper large-v3-turbo. | Support the voice mode without changing the decision engine. | ASR and audio fetch consume time; spoken math and short options remain difficult. |
 
 ## Notebook map
 
-I notebook sono organizzati in due cartelle:
+The notebooks are organized into two folders:
 
-- `project/notebooks/delivery/` — il notebook finale da consegnare e presentare;
-- `project/notebooks/development/` — baseline, ablation e storia sperimentale.
+- `project/notebooks/delivery/` — the final notebook to deliver and present;
+- `project/notebooks/development/` — baselines, ablations, and experimental history.
 
 ### Delivery — `project/notebooks/delivery/`
 
-| Notebook | Ruolo | Stato |
+| Notebook | Role | Status |
 | --- | --- | --- |
-| `notebook_final.ipynb` | pipeline testuale V8 + adapter speech | **finale principale** |
-| `notebook_final_html.html` | export HTML del notebook finale | snapshot presentazione |
+| `notebook_final.ipynb` | V8 text pipeline + speech adapter | **main final** |
+| `notebook_final_html.html` | HTML export of the final notebook | presentation snapshot |
 
 ### Development — `project/notebooks/development/`
 
-| Notebook | Ruolo | Stato |
+| Notebook | Role | Status |
 | --- | --- | --- |
-| `00_api_smoke_test.ipynb` | smoke test API e first-option baseline | baseline |
-| `01_quiz_tfidf_no_llm.ipynb` | TF-IDF SimpleWiki senza LLM | baseline |
-| `02_quiz_bm25_no_llm.ipynb` | BM25 SimpleWiki senza LLM | baseline |
+| `00_api_smoke_test.ipynb` | API smoke test and first-option baseline | baseline |
+| `01_quiz_tfidf_no_llm.ipynb` | TF-IDF SimpleWiki without LLM | baseline |
+| `02_quiz_bm25_no_llm.ipynb` | BM25 SimpleWiki without LLM | baseline |
 | `03_quiz_bm25_multi_index_no_llm.ipynb` | BM25 SimpleWiki + KELM | baseline |
 | `04_quiz_tfidf_multi_index_no_llm.ipynb` | TF-IDF SimpleWiki + KELM | baseline |
-| `05_quiz_bm25_multi_index_bert_no_llm.ipynb` (+ `_colab`) | BM25 + MiniLM/BERT reranker | ablation reranking |
-| `06_quiz_bm25_bert_llm_agentic_tools_colab.ipynb` | primo LLM piccolo + tool router | ablation agentica |
-| `07_build_dense_embeddings_colab.ipynb` | costruzione indici dense HNSW | utility |
-| `08_hybrid_pipeline.ipynb` | prima Hybrid RAG con Qwen3.5 GGUF | baseline LLM |
-| `09_hybrid_pipeline_math_tools.ipynb` | aggiunta tool Maths e textbook indexes | ablation Maths |
-| `10_agentic_math_tools_prof_style.ipynb` | router JSON Maths in stile tool-use | ablation |
-| `11_agentic_math_router_hardened.ipynb` | hardening parser/router Maths | ablation |
-| `12_validated_tools_option_retrieval.ipynb` | validated tools + option retrieval V1 | baseline forte |
-| `12_V2_validated_tools_option_retrieval.ipynb` | GBNF + adaptive retrieval + fix Maths | ablation |
+| `05_quiz_bm25_multi_index_bert_no_llm.ipynb` (+ `_colab`) | BM25 + MiniLM/BERT reranker | reranking ablation |
+| `06_quiz_bm25_bert_llm_agentic_tools_colab.ipynb` | first small LLM + tool router | agentic ablation |
+| `07_build_dense_embeddings_colab.ipynb` | building dense HNSW indexes | utility |
+| `08_hybrid_pipeline.ipynb` | first Hybrid RAG with Qwen3.5 GGUF | LLM baseline |
+| `09_hybrid_pipeline_math_tools.ipynb` | added Maths tools and textbook indexes | Maths ablation |
+| `10_agentic_math_tools_prof_style.ipynb` | Maths JSON router in tool-use style | ablation |
+| `11_agentic_math_router_hardened.ipynb` | Maths parser/router hardening | ablation |
+| `12_validated_tools_option_retrieval.ipynb` | validated tools + option retrieval V1 | strong baseline |
+| `12_V2_validated_tools_option_retrieval.ipynb` | GBNF + adaptive retrieval + Maths fixes | ablation |
 | `12_V3_validated_tools_option_retrieval.ipynb` | analysis router + Micro-CoT | ablation |
-| `12_V3_math_1M.ipynb` | esperimento Maths dedicato da $1,024,000 | evidence |
-| `12_V4_validated_tools_option_retrieval.ipynb` | News/Tavily + Maths esteso | ablation |
-| `12_V5-kaggle.ipynb` | unified retrieval + answer-first reasoning | ablation Kaggle |
-| `12_V5_complete.ipynb` | V5 + Qwen3 reranker + News fallback + Python executor | baseline pre-V8 |
-| `12_V6_validated_tools_option_retrieval.ipynb` | external BM25S temporaneo + Qwen3 reranker | ablation external |
-| `12_V7_validated_tools_option_retrieval.ipynb` | semantic gate + anti-trap News prompt | baseline precedente |
-| `12-v8-maths.ipynb` | ramo sperimentale Maths/V8 | evidence |
-| `12-v8-clean.ipynb` | pipeline testuale V8 pulita | base testuale finale |
-| `13_final.ipynb` | consolidamento pipeline V8 + speech | pre-delivery |
-| `13_final_comments.ipynb` | versione commentata end-to-end della pipeline finale | documentazione |
-| `13_speech.ipynb` | pipeline V8 + speech adapter | sviluppo speech |
-| `ASR_speech_benchmark.ipynb` | benchmark ASR live separato | analisi speech |
+| `12_V3_math_1M.ipynb` | dedicated $1,024,000 Maths experiment | evidence |
+| `12_V4_validated_tools_option_retrieval.ipynb` | News/Tavily + extended Maths | ablation |
+| `12_V5-kaggle.ipynb` | unified retrieval + answer-first reasoning | Kaggle ablation |
+| `12_V5_complete.ipynb` | V5 + Qwen3 reranker + News fallback + Python executor | pre-V8 baseline |
+| `12_V6_validated_tools_option_retrieval.ipynb` | temporary external BM25S + Qwen3 reranker | external ablation |
+| `12_V7_validated_tools_option_retrieval.ipynb` | semantic gate + anti-trap News prompt | previous baseline |
+| `12-v8-maths.ipynb` | experimental Maths/V8 branch | evidence |
+| `12-v8-clean.ipynb` | clean V8 text pipeline | final text base |
+| `13_final.ipynb` | V8 pipeline consolidation + speech | pre-delivery |
+| `13_final_comments.ipynb` | commented end-to-end version of the final pipeline | documentation |
+| `13_speech.ipynb` | V8 pipeline + speech adapter | speech development |
+| `ASR_speech_benchmark.ipynb` | separate live ASR benchmark | speech analysis |
 
-> Riferimento esterno: `api_client/NLP_assignment_api_client/PoliMillionaire.ipynb` è il tutorial API ufficiale.
+> External reference: `api_client/NLP_assignment_api_client/PoliMillionaire.ipynb` is the official API tutorial.
 
-## Struttura repository
+## Repository structure
 
 ```text
 NLP_polimi_26/
 |-- api_client/
 |   `-- NLP_assignment_api_client/
-|       `-- millionaire_client/       # client Python per API PoliMillionaire
+|       `-- millionaire_client/       # Python client for the PoliMillionaire API
 |-- data/
-|   |-- chunks/                       # corpus chunkati (jsonl) per gli indici
-|   |-- indexes/                      # indici BM25 e dense HNSW, spesso via Git LFS
-|   |-- kelm/                         # subset KELM
-|   |-- maths/                        # PDF textbook per indici matematici
-|   `-- wiki/                         # dump SimpleWiki
+|   |-- chunks/                       # chunked corpora (jsonl) for the indexes
+|   |-- indexes/                      # BM25 and dense HNSW indexes, often via Git LFS
+|   |-- kelm/                         # KELM subset
+|   |-- maths/                        # textbook PDFs for the math indexes
+|   `-- wiki/                         # SimpleWiki dump
 |-- docs/
-|   |-- assignment/                   # consegna ufficiale
-|   |-- slides/ , tutorials/          # materiale di corso e tutorial
-|   |-- retrieval_indexes.md          # comandi per corpus e indici
-|   `-- kelm_limited.md               # note subset KELM
-|-- logs/                             # CSV e analisi esperimenti
+|   |-- assignment/                   # official assignment
+|   |-- slides/ , tutorials/          # course material and tutorials
+|   |-- retrieval_indexes.md          # commands for corpora and indexes
+|   `-- kelm_limited.md               # KELM subset notes
+|-- logs/                             # experiment CSVs and analysis
 |-- project/
 |   |-- notebooks/
-|   |   |-- delivery/                 # notebook finale da consegnare
-|   |   `-- development/              # baseline, ablation, storia sperimentale
-|   `-- src/                          # script corpus, indici, retrieval, tool
+|   |   |-- delivery/                 # final notebook to deliver
+|   |   `-- development/              # baselines, ablations, experimental history
+|   `-- src/                          # corpus, indexes, retrieval, tool scripts
 |-- reports/
-|   `-- figures/                      # grafici generati (incl. Final_Pipeline_IMG.png)
+|   `-- figures/                      # generated figures (incl. Final_Pipeline_IMG.png)
 |-- API_README.md
 `-- README.md
 ```
 
-## Setup repository
+## Repository setup
 
-Gli indici e alcuni PDF sono file grandi e possono usare Git LFS:
+The indexes and some PDFs are large files and may use Git LFS:
 
 ```bash
 git lfs install
 git lfs pull
 ```
 
-Ambiente locale minimo per script e analisi:
+Minimal local environment for scripts and analysis:
 
 ```bash
 conda create -n polimillionaire python=3.11
@@ -382,7 +382,7 @@ conda activate polimillionaire
 pip install numpy pandas scikit-learn joblib bm25s pypdf requests matplotlib seaborn sympy
 ```
 
-I notebook finali installano autonomamente le dipendenze runtime piu pesanti, inclusi:
+The final notebooks autonomously install the heavier runtime dependencies, including:
 
 ```text
 huggingface_hub
@@ -398,15 +398,15 @@ soundfile
 scipy
 ```
 
-## API PoliMillionaire
+## PoliMillionaire API
 
-Endpoint assignment:
+Assignment endpoint:
 
 ```text
 http://131.175.15.22:51111/
 ```
 
-Uso minimo:
+Minimal usage:
 
 ```python
 import sys
@@ -419,7 +419,7 @@ client.login(username, password)
 competitions = client.competitions.list_all()
 ```
 
-Modalita speech:
+Speech mode:
 
 ```python
 game = client.game.start(competition_id=comp_id, mode="speech")
@@ -427,13 +427,13 @@ question_audio = game.fetch_audio_question()
 option_a_audio = game.fetch_audio_option_next()
 ```
 
-Dettagli completi in [API_README.md](API_README.md).
+Full details in [API_README.md](API_README.md).
 
-## Costruire corpus e indici
+## Building corpora and indexes
 
-La documentazione completa e in [docs/retrieval_indexes.md](docs/retrieval_indexes.md).
+The complete documentation is in [docs/retrieval_indexes.md](docs/retrieval_indexes.md).
 
-Esempio SimpleWiki chunks:
+SimpleWiki chunks example:
 
 ```bash
 conda run -n polimillionaire python project/src/make_retrieval_corpus.py \
@@ -446,7 +446,7 @@ conda run -n polimillionaire python project/src/make_retrieval_corpus.py \
   --output data/chunks/simplewiki_160w.jsonl
 ```
 
-Indice BM25:
+BM25 index:
 
 ```bash
 conda run -n polimillionaire python project/src/build_retrieval_index.py \
@@ -457,14 +457,14 @@ conda run -n polimillionaire python project/src/build_retrieval_index.py \
   --output data/indexes/simplewiki_160w_title2_stop_bm25.joblib
 ```
 
-Indici matematici:
+Math indexes:
 
 ```powershell
 .\project\src\build_all_textbook_bm25_indexes.ps1
 .\project\src\build_all_textbook_dense_indexes.ps1
 ```
 
-Query manuale:
+Manual query:
 
 ```bash
 conda run -n polimillionaire python project/src/query_retrieval_index.py \
@@ -475,37 +475,37 @@ conda run -n polimillionaire python project/src/query_retrieval_index.py \
 
 ## Logging
 
-Campi diagnostici rilevanti:
+Relevant diagnostic fields:
 
 - `competition_name`, `question_id`, `question_level`
 - `chosen_option_id`, `correct`, `earned_amount`, `timed_out`
 - `latency_seconds`
 - `strategy`, `decision_source`, `confidence`
 - `raw_llm_output`, `prompt_version`
-- `retrieved_context`, `retrieval_sources`, score e margini retrieval
+- `retrieved_context`, `retrieval_sources`, retrieval scores and margins
 - `option_evidence_scores_json`, `option_evidence_json`
 - `tool_validated`, `validated_tool_call`, `math_tool_trace`
 - `fallback_used`
 - `textbook_context_*`
-- speech-only: transcript, path audio, fetch seconds, ASR seconds, ASR model/device
+- speech-only: transcript, audio paths, fetch seconds, ASR seconds, ASR model/device
 
 ## Troubleshooting
 
-| Problema | Soluzione |
+| Problem | Solution |
 | --- | --- |
-| `ModuleNotFoundError: millionaire_client` | Assicurarsi che `api_client/NLP_assignment_api_client` sia in `sys.path`. |
-| API non raggiungibile | Evitare Wi-Fi PoliMi se blocca la porta; usare rete mobile/VPN. |
-| Kaggle senza GPU | Abilitare accelerator GPU e verificare con `nvidia-smi`. |
-| OOM su GGUF o reranker | Ridurre `RERANKER_BATCH_SIZE`, `RERANKER_MAX_LENGTH`, `LLM_CONTEXT_K` o GPU layers llama.cpp. |
-| GGUF non valido | Verificare size/header `GGUF`; cancellare cache modello e riscaricare revision pinning. |
-| `TAVILY-API-KEY` mancante | Creare il secret Kaggle con quel nome esatto o adattare la cella. |
-| Output LLM non parsabile | Usare GBNF quando disponibile; altrimenti controllare `raw_llm_output` e fallback. |
-| News rumorose | Controllare articoli, headline e `retrieval_sources`; Tavily/RSS possono recuperare articoli correlati ma non risolutivi. |
-| Maths lento o sbagliato | Guardare `math_tool_trace`, `validated_tool_call`, `fallback_used` e textbook context. |
-| Speech timeout | ASR + fetch audio consumano budget; caricare e scaldare Whisper prima di iniziare la partita speech. |
-| Speech trascrive male opzioni | Usare gli audio salvati in `speech_audio_v9/` e confrontare `api_options_json` con `speech_options_transcript_json`. |
+| `ModuleNotFoundError: millionaire_client` | Make sure `api_client/NLP_assignment_api_client` is on `sys.path`. |
+| API unreachable | Avoid PoliMi Wi-Fi if it blocks the port; use mobile network/VPN. |
+| Kaggle without GPU | Enable the GPU accelerator and verify with `nvidia-smi`. |
+| OOM on GGUF or reranker | Reduce `RERANKER_BATCH_SIZE`, `RERANKER_MAX_LENGTH`, `LLM_CONTEXT_K`, or llama.cpp GPU layers. |
+| Invalid GGUF | Verify size/`GGUF` header; clear the model cache and re-download with revision pinning. |
+| `TAVILY-API-KEY` missing | Create the Kaggle secret with that exact name or adapt the cell. |
+| Unparsable LLM output | Use GBNF when available; otherwise check `raw_llm_output` and fallback. |
+| Noisy News | Check articles, headlines, and `retrieval_sources`; Tavily/RSS can retrieve related but non-resolving articles. |
+| Maths slow or wrong | Look at `math_tool_trace`, `validated_tool_call`, `fallback_used`, and textbook context. |
+| Speech timeout | ASR + audio fetch consume the budget; load and warm up Whisper before starting the speech game. |
+| Speech mis-transcribes options | Use the audio saved in `speech_audio_v9/` and compare `api_options_json` with `speech_options_transcript_json`. |
 
-## Riferimenti
+## References
 
 1. Lewis et al. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*. ICLR. [arXiv](https://arxiv.org/abs/2005.11401)
 2. Wei et al. (2022). *Chain-of-Thought Prompting Elicits Reasoning in Large Language Models*. NeurIPS. [arXiv](https://arxiv.org/abs/2201.11903)
